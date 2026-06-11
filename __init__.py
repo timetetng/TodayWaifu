@@ -478,3 +478,8 @@ async def daily_wife(bot: Bot, ev: Event):
 @sv.on_prefix(('抢老婆', '抢今日老婆'), block=True)
 async def rob_wife(bot: Bot, ev: Event):
     await _send_rob_wife(bot, ev)
+
+
+@sv.on_fullmatch(('抢老婆', '抢今日老婆'), block=True)
+async def rob_wife_at(bot: Bot, ev: Event):
+    await _send_rob_wife(bot, ev)
