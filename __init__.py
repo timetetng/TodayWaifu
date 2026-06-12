@@ -34,6 +34,9 @@ sv = SV('鸣潮今日老婆')
 BASE_DIR = Path(__file__).parent
 DEFAULT_GALLERY_API_URL = 'https://img.xlinxc.cn/api/xwuid/roles'
 CACHE_TTL_SECONDS = 300
+# 本地图片读取相关常量
+ROLE_MAP_RE = re.compile(r'^\s*(\d+)\s*[:：]\s*(.+?)\s*$')
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'}
 EXCLUDED_ROLE_NAMES = {
     '仇远',
     '凌阳',
@@ -47,7 +50,8 @@ EXCLUDED_ROLE_NAMES = {
     '陆·赫斯',
 }
 EXCLUDED_ROLE_KEYWORDS = ('漂泊者',)
-CANDIDATE_CACHE: tuple[float, tuple['RoleCandidate', ...]] | None = None
+# 按数据源分别缓存候选，避免切换数据源后误用旧缓存
+CANDIDATE_CACHE: dict[str, tuple[float, tuple['RoleCandidate', ...]]] = {}
 
 
 @dataclass(frozen=True)
@@ -88,6 +92,137 @@ def _cfg_bool(key: str, default: bool = False) -> bool:
         if text in {'false', '0', 'no', 'n', 'off', 'disable', 'disabled', '关闭'}:
             return False
     return default
+
+
+def _image_source() -> str:
+    '''返回当前图片数据源：local 或 gallery（默认）。'''
+    value = str(_cfg('DailyWifeImageSource') or 'gallery').strip().lower()
+    return 'local' if value == 'local' else 'gallery'
+
+
+def _configured_path(key: str) -> Path | None:
+    '''读取配置中的路径，留空返回 None。'''
+    raw = str(_cfg(key) or '').strip().strip('"')
+    if not raw:
+        return None
+    return Path(raw).expanduser()
+
+
+def _resolve_role_map_path() -> Path | None:
+    '''定位角色 ID 对照表：优先配置路径，其次插件内置 role_id_map.txt。'''
+    configured = _configured_path('DailyWifeRoleMapPath')
+    candidates = [
+        configured,
+        BASE_DIR / 'role_id_map.txt',
+        BASE_DIR.parent / '鸣潮面板id对照角色.txt',
+        Path.cwd() / '鸣潮面板id对照角色.txt',
+    ]
+    for path in candidates:
+        if path and path.is_file():
+            return path
+    return None
+
+
+def _resolve_role_pile_root() -> Path | None:
+    '''定位本地角色立绘目录 custom_role_pile：优先配置路径，其次自动查找。'''
+    configured = _configured_path('DailyWifeCustomRolePilePath')
+    candidates = [configured] if configured else []
+    candidates.extend(
+        [
+            Path.cwd() / 'gsuid_core' / 'data' / 'XutheringWavesUID' / 'custom_role_pile',
+            Path.cwd() / 'data' / 'XutheringWavesUID' / 'custom_role_pile',
+            BASE_DIR.parent / 'gsuid_core' / 'data' / 'XutheringWavesUID' / 'custom_role_pile',
+            BASE_DIR.parent / 'data' / 'XutheringWavesUID' / 'custom_role_pile',
+        ]
+    )
+
+    try:
+        import gsuid_core
+
+        core_root = Path(gsuid_core.__file__).resolve().parents[1]
+        candidates.append(core_root / 'data' / 'XutheringWavesUID' / 'custom_role_pile')
+    except Exception:
+        pass
+
+    for path in candidates:
+        if path and path.is_dir():
+            return path
+    return None
+
+
+def _load_role_map(path: Path) -> dict[str, str]:
+    '''解析「ID：角色名」格式的对照表。'''
+    result: dict[str, str] = {}
+    for line in path.read_text(encoding='utf-8').splitlines():
+        match = ROLE_MAP_RE.match(line)
+        if not match:
+            continue
+        role_id, role_name = match.groups()
+        role_name = role_name.strip()
+        if role_name:
+            result[role_id] = role_name
+    return result
+
+
+def _role_images(role_dir: Path) -> tuple[str, ...]:
+    '''递归收集某角色目录下的所有图片，返回本地路径字符串。'''
+    images = [
+        path
+        for path in role_dir.rglob('*')
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+    ]
+    return tuple(str(path) for path in sorted(images, key=lambda path: str(path).lower()))
+
+
+def _collect_role_candidates(role_map: dict[str, str], pile_root: Path) -> tuple[RoleCandidate, ...]:
+    '''按对照表把本地目录里的图片归并成角色候选。'''
+    grouped: dict[str, dict[str, list[Any]]] = {}
+    for role_id in sorted(role_map.keys(), key=lambda item: int(item) if item.isdigit() else item):
+        role_name = role_map[role_id]
+        if _is_excluded_role(role_name):
+            continue
+        role_dir = pile_root / role_id
+        if not role_dir.is_dir():
+            continue
+        images = _role_images(role_dir)
+        if not images:
+            continue
+        bucket = grouped.setdefault(role_name, {'role_ids': [], 'images': []})
+        bucket['role_ids'].append(role_id)
+        bucket['images'].extend(images)
+
+    candidates: list[RoleCandidate] = []
+    for role_name, bucket in grouped.items():
+        candidates.append(
+            RoleCandidate(
+                name=role_name,
+                role_ids=tuple(str(item) for item in bucket['role_ids']),
+                images=tuple(bucket['images']),
+            )
+        )
+    return tuple(sorted(candidates, key=lambda item: item.name))
+
+
+def _load_local_candidates() -> tuple[tuple[RoleCandidate, ...] | None, str | None]:
+    '''从本地目录加载角色候选。'''
+    role_map_path = _resolve_role_map_path()
+    if role_map_path is None:
+        return None, '没有找到鸣潮角色 ID 对照表。'
+
+    pile_root = _resolve_role_pile_root()
+    if pile_root is None:
+        return None, '没有找到 custom_role_pile 图片目录。'
+
+    try:
+        role_map = _load_role_map(role_map_path)
+        candidates = _collect_role_candidates(role_map, pile_root)
+    except Exception as exc:
+        logger.warning(f'[gs_wuwa_daily_wife] 读取本地图片目录失败: {exc}')
+        return None, '读取本地图片目录失败。'
+
+    if not candidates:
+        return None, 'custom_role_pile 里没有找到可用角色图片。'
+    return candidates, None
 
 
 def _gallery_api_url() -> str:
@@ -141,8 +276,34 @@ def _fetch_gallery_payload_sync() -> dict[str, Any]:
     return payload
 
 
+def _normalize_role_name(name: str) -> str:
+    '''归一化角色名：统一中点分隔符并去空白，避免因 ・/·/空格 差异导致性别误判。'''
+    return name.replace('・', '·').replace('•', '·').strip()
+
+
+# 预归一化的男角色名单，匹配时两边都归一化，杜绝分隔符差异
+_MALE_ROLE_NAMES_NORM = {_normalize_role_name(n) for n in EXCLUDED_ROLE_NAMES}
+
+
+def _is_male_role(name: str) -> bool:
+    '''是否男角色（用于今日老婆/今日老公的性别过滤）。'''
+    return _normalize_role_name(name) in _MALE_ROLE_NAMES_NORM
+
+
 def _is_excluded_role(name: str) -> bool:
-    return name in EXCLUDED_ROLE_NAMES or any(keyword in name for keyword in EXCLUDED_ROLE_KEYWORDS)
+    '''是否始终排除的角色（如漂泊者，性别不固定）。'''
+    return any(keyword in name for keyword in EXCLUDED_ROLE_KEYWORDS)
+
+
+def _husband_enabled() -> bool:
+    return _cfg_bool('DailyWifeHusbandEnabled', False)
+
+
+def _filter_by_mode(candidates: tuple['RoleCandidate', ...], mode: str) -> tuple['RoleCandidate', ...]:
+    '''按模式过滤候选：husband 只留男角色，wife 只留非男角色。'''
+    if mode == 'husband':
+        return tuple(role for role in candidates if _is_male_role(role.name))
+    return tuple(role for role in candidates if not _is_male_role(role.name))
 
 
 def _parse_role_candidates(payload: dict[str, Any]) -> tuple[RoleCandidate, ...]:
@@ -178,9 +339,19 @@ def _parse_role_candidates(payload: dict[str, Any]) -> tuple[RoleCandidate, ...]
 async def _load_candidates() -> tuple[tuple[RoleCandidate, ...] | None, str | None]:
     global CANDIDATE_CACHE
 
+    source = _image_source()
     now = time.time()
-    if CANDIDATE_CACHE and now - CANDIDATE_CACHE[0] < CACHE_TTL_SECONDS:
-        return CANDIDATE_CACHE[1], None
+    cached = CANDIDATE_CACHE.get(source)
+    if cached and now - cached[0] < CACHE_TTL_SECONDS:
+        return cached[1], None
+
+    if source == 'local':
+        # 本地读取为同步文件操作，放到线程里避免阻塞
+        candidates, error = await asyncio.to_thread(_load_local_candidates)
+        if error or not candidates:
+            return None, error
+        CANDIDATE_CACHE[source] = (now, candidates)
+        return candidates, None
 
     try:
         payload = await asyncio.to_thread(_fetch_gallery_payload_sync)
@@ -195,7 +366,7 @@ async def _load_candidates() -> tuple[tuple[RoleCandidate, ...] | None, str | No
     if not candidates:
         return None, '画廊接口里没有找到可用的角色立绘。'
 
-    CANDIDATE_CACHE = (now, candidates)
+    CANDIDATE_CACHE[source] = (now, candidates)
     return candidates, None
 
 
@@ -216,10 +387,12 @@ async def _download_image(url: str) -> bytes:
     return await asyncio.to_thread(_download_image_sync, url)
 
 
-def _daily_rng(ev: Event, user_id: str | int | None = None) -> random.Random:
+def _daily_rng(ev: Event, user_id: str | int | None = None, salt: str = '') -> random.Random:
     group_key = ev.group_id or 'direct'
     target_user_id = ev.user_id if user_id is None else user_id
     seed = f'{date.today().isoformat()}:{target_user_id}:{group_key}'
+    if salt:
+        seed = f'{seed}:{salt}'
     return random.Random(seed)
 
 
@@ -322,6 +495,7 @@ def _get_today_context(data: dict[str, Any], ev: Event) -> dict[str, Any]:
     day = data.setdefault('days', {}).setdefault(_today_key(), {})
     context = day.setdefault(_context_key(ev), {})
     context.setdefault('wives', {})
+    context.setdefault('husbands', {})
     context.setdefault('rob_attempts', {})
     return context
 
@@ -342,6 +516,16 @@ def _record_to_dict(record: WifeRecord, ev: Event | None = None, user_id: str | 
     return data
 
 
+def _is_valid_image_ref(image: str) -> bool:
+    '''图片引用是否有效：http(s) 链接或存在的本地文件。'''
+    if image.startswith(('http://', 'https://')):
+        return True
+    try:
+        return Path(image).is_file()
+    except Exception:
+        return False
+
+
 def _record_from_dict(data: dict[str, Any]) -> WifeRecord | None:
     try:
         record = WifeRecord(
@@ -351,7 +535,7 @@ def _record_from_dict(data: dict[str, Any]) -> WifeRecord | None:
         )
     except Exception:
         return None
-    if not record.name or not record.image.startswith(('http://', 'https://')):
+    if not record.name or not _is_valid_image_ref(record.image):
         return None
     return record
 
@@ -402,9 +586,13 @@ def _build_rob_success_text(role: RoleCandidate, target_user_id: str) -> str:
     )
 
 
-def _build_text(role: RoleCandidate) -> str:
+def _build_text(role: RoleCandidate, mode: str = 'wife') -> str:
+    if mode == 'husband':
+        template = str(_cfg('DailyHusbandTextTemplate') or '你今天的老公是{name}')
+    else:
+        template = str(_cfg('DailyWifeTextTemplate') or '你今天的老婆是{name}')
     lines = [
-        str(_cfg('DailyWifeTextTemplate') or '你今天的老婆是{name}').format(
+        template.format(
             name=role.name,
             role_id='/'.join(role.role_ids),
         )
@@ -414,11 +602,15 @@ def _build_text(role: RoleCandidate) -> str:
     return '\n'.join(lines)
 
 
-async def _ensure_daily_wife_record(ev: Event, user_id: str | int | None = None) -> WifeRecord | None:
+async def _ensure_daily_wife_record(
+    ev: Event, user_id: str | int | None = None, mode: str = 'wife'
+) -> WifeRecord | None:
+    bucket = 'husbands' if mode == 'husband' else 'wives'
+    salt = 'husband' if mode == 'husband' else ''
     data = _load_wife_data()
     context = _get_today_context(data, ev)
     key = _user_key(ev, user_id)
-    current = context['wives'].get(key)
+    current = context[bucket].get(key)
     if isinstance(current, dict):
         record = _record_from_dict(current)
         if record is not None:
@@ -427,12 +619,15 @@ async def _ensure_daily_wife_record(ev: Event, user_id: str | int | None = None)
     candidates, error = await _load_candidates()
     if error or not candidates:
         return None
+    candidates = _filter_by_mode(candidates, mode)
+    if not candidates:
+        return None
 
-    rng = _daily_rng(ev, key)
+    rng = _daily_rng(ev, key, salt)
     role = rng.choice(candidates)
     image = rng.choice(role.images)
     record = WifeRecord.from_role(role, image)
-    context['wives'][key] = _record_to_dict(record, ev, key)
+    context[bucket][key] = _record_to_dict(record, ev, key)
     _save_wife_data(data)
     return record
 
@@ -446,20 +641,25 @@ def _get_existing_daily_wife_record(ev: Event, user_id: str | int) -> WifeRecord
     return None
 
 
-def _save_daily_wife_record(ev: Event, record: WifeRecord, user_id: str | int | None = None) -> None:
+def _save_daily_wife_record(
+    ev: Event, record: WifeRecord, user_id: str | int | None = None, mode: str = 'wife'
+) -> None:
+    bucket = 'husbands' if mode == 'husband' else 'wives'
     data = _load_wife_data()
     context = _get_today_context(data, ev)
     key = _user_key(ev, user_id)
-    context['wives'][key] = _record_to_dict(record, ev, key)
+    context[bucket][key] = _record_to_dict(record, ev, key)
     _save_wife_data(data)
 
 
-async def _wife_list_text(ev: Event) -> str:
+async def _wife_list_text(ev: Event, mode: str = 'wife') -> str:
+    bucket = 'husbands' if mode == 'husband' else 'wives'
+    title = '老公' if mode == 'husband' else '老婆'
     data = _load_wife_data()
     context = _get_today_context(data, ev)
-    wives = context.get('wives', {})
+    wives = context.get(bucket, {})
     if not isinstance(wives, dict) or not wives:
-        return '今天本群还没有人抽老婆。'
+        return f'今天本群还没有人抽{title}。'
 
     group_display_names = await _load_group_display_names(ev)
     data_changed = False
@@ -493,13 +693,13 @@ async def _wife_list_text(ev: Event) -> str:
         items.append((order, display_name, wife_name))
 
     if not items:
-        return '今天本群还没有可用的老婆记录。'
+        return f'今天本群还没有可用的{title}记录。'
 
     if data_changed:
         _save_wife_data(data)
 
     items.sort(key=lambda item: (item[0], item[1]))
-    lines = ['今日老婆列表：']
+    lines = [f'今日{title}列表：']
     lines.extend(f'{index}. {display_name} → {wife_name}' for index, (_, display_name, wife_name) in enumerate(items, 1))
     return '\n'.join(lines)
 
@@ -511,12 +711,21 @@ async def _send_role_image(
     text: str | None = None,
     user_id: str | int | None = None,
 ) -> None:
-    try:
-        image = await _download_image(image_url)
-    except RuntimeError as exc:
-        logger.warning(f'[gs_wuwa_daily_wife] 下载画廊图片失败: {exc}')
-        await bot.send(str(exc))
-        return
+    if image_url.startswith(('http://', 'https://')):
+        # 画廊接口：下载图片字节再发送
+        try:
+            image: Any = await _download_image(image_url)
+        except RuntimeError as exc:
+            logger.warning(f'[gs_wuwa_daily_wife] 下载画廊图片失败: {exc}')
+            await bot.send(str(exc))
+            return
+    else:
+        # 本地图片：校验文件存在后直接用路径发送
+        if not Path(image_url).is_file():
+            logger.warning(f'[gs_wuwa_daily_wife] 本地图片不存在: {image_url}')
+            await bot.send('本地图片文件不存在，请检查 custom_role_pile 目录。')
+            return
+        image = Path(image_url)
 
     messages: list[Any] = []
     if user_id is not None and bool(_cfg('DailyWifeAtUser')):
@@ -527,13 +736,16 @@ async def _send_role_image(
     await bot.send(messages if len(messages) > 1 else messages[0])
 
 
-async def _send_daily_wife(bot: Bot, ev: Event):
-    if not (bool(_cfg('DailyWifeMasterUnlimited')) and _is_master(ev)):
+async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife'):
+    title = '老公' if mode == 'husband' else '老婆'
+    salt = 'husband' if mode == 'husband' else ''
+    # 老婆模式下，若今天的老婆已被抢走，则不再补抽（老公模式没有抢夺概念）
+    if mode == 'wife' and not (bool(_cfg('DailyWifeMasterUnlimited')) and _is_master(ev)):
         data = _load_wife_data()
         context = _get_today_context(data, ev)
         user_key = _user_key(ev)
         current_record = context['wives'].get(user_key)
-        
+
         if isinstance(current_record, dict) and current_record.get('stolen_by'):
             wife_name = current_record.get('name', '老婆')
             stolen_by_name = current_record.get('stolen_by_name') or current_record.get('stolen_by')
@@ -543,26 +755,30 @@ async def _send_daily_wife(bot: Bot, ev: Event):
     if error or not candidates:
         return await bot.send(error or '没有找到可用角色。')
 
-    rng = _event_rng(ev)
+    candidates = _filter_by_mode(candidates, mode)
+    if not candidates:
+        return await bot.send(f'没有找到可用的{title}角色。')
+
     if bool(_cfg('DailyWifeMasterUnlimited')) and _is_master(ev):
+        rng = random.Random()
         role = rng.choice(candidates)
         image = rng.choice(role.images)
         record = WifeRecord.from_role(role, image)
     else:
-        record = await _ensure_daily_wife_record(ev)
+        record = await _ensure_daily_wife_record(ev, mode=mode)
         if record is None:
-            return await bot.send('没有找到可用角色。')
+            return await bot.send(f'没有找到可用的{title}角色。')
         role = record.to_role()
         image = record.image
 
-    _save_daily_wife_record(ev, record)
+    _save_daily_wife_record(ev, record, mode=mode)
 
     logger.info(
-        f'[gs_wuwa_daily_wife] user={ev.user_id} group={ev.group_id or "direct"} '
+        f'[gs_wuwa_daily_wife] mode={mode} user={ev.user_id} group={ev.group_id or "direct"} '
         f'role={role.name} ids={role.role_ids} image={image}'
     )
 
-    text = _build_text(role) if bool(_cfg('DailyWifeSendText')) else None
+    text = _build_text(role, mode) if bool(_cfg('DailyWifeSendText')) else None
     await _send_role_image(bot, role, image, text, ev.user_id)
 
 
@@ -611,8 +827,8 @@ async def _send_rob_wife(bot: Bot, ev: Event):
     await _send_role_image(bot, role, target_record.image, text, robber_id)
 
 
-async def _send_wife_list(bot: Bot, ev: Event):
-    await bot.send(await _wife_list_text(ev))
+async def _send_wife_list(bot: Bot, ev: Event, mode: str = 'wife'):
+    await bot.send(await _wife_list_text(ev, mode))
 
 
 @sv.on_fullmatch('今日老婆', block=True)
@@ -623,6 +839,20 @@ async def daily_wife(bot: Bot, ev: Event):
 @sv.on_fullmatch(('老婆列表', '今日老婆列表'), block=True)
 async def daily_wife_list(bot: Bot, ev: Event):
     await _send_wife_list(bot, ev)
+
+
+@sv.on_fullmatch('今日老公', block=True)
+async def daily_husband(bot: Bot, ev: Event):
+    if not _husband_enabled():
+        return await bot.send('今日老公功能当前已关闭。')
+    await _send_daily_wife(bot, ev, mode='husband')
+
+
+@sv.on_fullmatch(('老公列表', '今日老公列表'), block=True)
+async def daily_husband_list(bot: Bot, ev: Event):
+    if not _husband_enabled():
+        return await bot.send('今日老公功能当前已关闭。')
+    await _send_wife_list(bot, ev, mode='husband')
 
 
 @sv.on_prefix(('抢老婆', '抢今日老婆'), block=True)
