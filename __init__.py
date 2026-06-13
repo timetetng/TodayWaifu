@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import random
 import re
@@ -10,8 +9,6 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from gsuid_core.bot import Bot
 from gsuid_core.config import core_config
@@ -32,7 +29,6 @@ Plugins(
 
 sv = SV('鸣潮今日老婆')
 BASE_DIR = Path(__file__).parent
-DEFAULT_GALLERY_API_URL = 'https://img.xlinxc.cn/api/xwuid/roles'
 CACHE_TTL_SECONDS = 300
 # 本地图片读取相关常量
 ROLE_MAP_RE = re.compile(r'^\s*(\d+)\s*[:：]\s*(.+?)\s*$')
@@ -50,8 +46,8 @@ EXCLUDED_ROLE_NAMES = {
     '陆·赫斯',
 }
 EXCLUDED_ROLE_KEYWORDS = ('漂泊者',)
-# 按数据源分别缓存候选，避免切换数据源后误用旧缓存
-CANDIDATE_CACHE: dict[str, tuple[float, tuple['RoleCandidate', ...]]] = {}
+# 本地角色候选缓存
+CANDIDATE_CACHE: tuple[float, tuple['RoleCandidate', ...]] | None = None
 
 
 @dataclass(frozen=True)
@@ -62,17 +58,33 @@ class RoleCandidate:
 
 
 @dataclass(frozen=True)
+class MemberCandidate:
+    name: str
+    user_id: str
+    avatar: str
+
+
+@dataclass(frozen=True)
 class WifeRecord:
     name: str
     role_ids: tuple[str, ...]
     image: str
+    record_type: str = 'role'
+    target_user_id: str = ''
 
     @classmethod
     def from_role(cls, role: RoleCandidate, image: str) -> 'WifeRecord':
         return cls(role.name, role.role_ids, image)
 
+    @classmethod
+    def from_member(cls, member: MemberCandidate) -> 'WifeRecord':
+        return cls(member.name, ('群友',), member.avatar, 'member', member.user_id)
+
     def to_role(self) -> RoleCandidate:
         return RoleCandidate(self.name, self.role_ids, (self.image,))
+
+    def to_member(self) -> MemberCandidate:
+        return MemberCandidate(self.name, self.target_user_id, self.image)
 
 
 def _cfg(key: str) -> Any:
@@ -94,10 +106,12 @@ def _cfg_bool(key: str, default: bool = False) -> bool:
     return default
 
 
-def _image_source() -> str:
-    '''返回当前图片数据源：local 或 gallery（默认）。'''
-    value = str(_cfg('DailyWifeImageSource') or 'gallery').strip().lower()
-    return 'local' if value == 'local' else 'gallery'
+def _cfg_probability(key: str, default: float = 0.0) -> float:
+    try:
+        value = float(_cfg(key))
+    except (TypeError, ValueError):
+        value = default
+    return max(0.0, min(1.0, value))
 
 
 def _configured_path(key: str) -> Path | None:
@@ -225,57 +239,6 @@ def _load_local_candidates() -> tuple[tuple[RoleCandidate, ...] | None, str | No
     return candidates, None
 
 
-def _gallery_api_url() -> str:
-    return str(_cfg('DailyWifeGalleryApiUrl') or DEFAULT_GALLERY_API_URL).strip()
-
-
-def _gallery_auth_header() -> str | None:
-    username = str(_cfg('DailyWifeGalleryUsername') or '').strip()
-    password = str(_cfg('DailyWifeGalleryPassword') or '').strip()
-    if not username or not password:
-        return None
-    token = base64.b64encode(f'{username}:{password}'.encode('utf-8')).decode('ascii')
-    return f'Basic {token}'
-
-
-def _request_headers() -> dict[str, str]:
-    headers = {'User-Agent': 'gs_wuwa_daily_wife/1.0'}
-    auth = _gallery_auth_header()
-    if auth:
-        headers['Authorization'] = auth
-    return headers
-
-
-def _http_get(url: str, *, timeout: int = 15) -> bytes:
-    request = Request(url, headers=_request_headers())
-    with urlopen(request, timeout=timeout) as resp:
-        return resp.read()
-
-
-def _fetch_gallery_payload_sync() -> dict[str, Any]:
-    api_url = _gallery_api_url()
-    if not api_url:
-        raise RuntimeError('未配置画廊接口地址。')
-    try:
-        body = _http_get(api_url, timeout=15)
-    except HTTPError as exc:
-        if exc.code == 401:
-            raise RuntimeError('画廊账号或密码不正确，接口返回 401。') from exc
-        raise RuntimeError(f'请求画廊接口失败，HTTP {exc.code}。') from exc
-    except URLError as exc:
-        raise RuntimeError(f'请求画廊接口失败：{exc.reason}') from exc
-    except TimeoutError as exc:
-        raise RuntimeError('请求画廊接口超时。') from exc
-
-    try:
-        payload = json.loads(body.decode('utf-8'))
-    except Exception as exc:
-        raise RuntimeError('画廊接口返回内容不是有效 JSON。') from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError('画廊接口返回格式不正确。')
-    return payload
-
-
 def _normalize_role_name(name: str) -> str:
     '''归一化角色名：统一中点分隔符并去空白，避免因 ・/·/空格 差异导致性别误判。'''
     return name.replace('・', '·').replace('•', '·').strip()
@@ -306,85 +269,20 @@ def _filter_by_mode(candidates: tuple['RoleCandidate', ...], mode: str) -> tuple
     return tuple(role for role in candidates if not _is_male_role(role.name))
 
 
-def _parse_role_candidates(payload: dict[str, Any]) -> tuple[RoleCandidate, ...]:
-    roles_data = payload.get('roles')
-    if not isinstance(roles_data, list):
-        return ()
-
-    candidates: list[RoleCandidate] = []
-    for item in roles_data:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get('name') or '').strip()
-        if not name or _is_excluded_role(name):
-            continue
-
-        role_ids_data = item.get('role_ids') or []
-        role_ids = tuple(str(role_id) for role_id in role_ids_data if str(role_id).strip())
-
-        images: list[str] = []
-        for image_item in item.get('images') or []:
-            if isinstance(image_item, dict):
-                url = str(image_item.get('url') or '').strip()
-            else:
-                url = str(image_item or '').strip()
-            if url.startswith(('http://', 'https://')):
-                images.append(url)
-        if images:
-            candidates.append(RoleCandidate(name=name, role_ids=role_ids, images=tuple(images)))
-
-    return tuple(sorted(candidates, key=lambda role: role.name))
-
-
 async def _load_candidates() -> tuple[tuple[RoleCandidate, ...] | None, str | None]:
     global CANDIDATE_CACHE
 
-    source = _image_source()
     now = time.time()
-    cached = CANDIDATE_CACHE.get(source)
-    if cached and now - cached[0] < CACHE_TTL_SECONDS:
-        return cached[1], None
+    if CANDIDATE_CACHE and now - CANDIDATE_CACHE[0] < CACHE_TTL_SECONDS:
+        return CANDIDATE_CACHE[1], None
 
-    if source == 'local':
-        # 本地读取为同步文件操作，放到线程里避免阻塞
-        candidates, error = await asyncio.to_thread(_load_local_candidates)
-        if error or not candidates:
-            return None, error
-        CANDIDATE_CACHE[source] = (now, candidates)
-        return candidates, None
+    # 本地读取为同步文件操作，放到线程里避免阻塞
+    candidates, error = await asyncio.to_thread(_load_local_candidates)
+    if error or not candidates:
+        return None, error
 
-    try:
-        payload = await asyncio.to_thread(_fetch_gallery_payload_sync)
-        candidates = _parse_role_candidates(payload)
-    except RuntimeError as exc:
-        logger.warning(f'[gs_wuwa_daily_wife] 读取画廊接口失败: {exc}')
-        return None, str(exc)
-    except Exception as exc:
-        logger.warning(f'[gs_wuwa_daily_wife] 读取画廊接口异常: {exc}')
-        return None, '读取画廊接口失败。'
-
-    if not candidates:
-        return None, '画廊接口里没有找到可用的角色立绘。'
-
-    CANDIDATE_CACHE[source] = (now, candidates)
+    CANDIDATE_CACHE = (now, candidates)
     return candidates, None
-
-
-def _download_image_sync(url: str) -> bytes:
-    try:
-        return _http_get(url, timeout=20)
-    except HTTPError as exc:
-        if exc.code == 401:
-            raise RuntimeError('画廊账号或密码不正确，图片返回 401。') from exc
-        raise RuntimeError(f'下载图片失败，HTTP {exc.code}。') from exc
-    except URLError as exc:
-        raise RuntimeError(f'下载图片失败：{exc.reason}') from exc
-    except TimeoutError as exc:
-        raise RuntimeError('下载图片超时。') from exc
-
-
-async def _download_image(url: str) -> bytes:
-    return await asyncio.to_thread(_download_image_sync, url)
 
 
 def _daily_rng(ev: Event, user_id: str | int | None = None, salt: str = '') -> random.Random:
@@ -472,6 +370,131 @@ async def _load_group_display_names(ev: Event) -> dict[str, str]:
     return exact or fallback
 
 
+def _member_feature_enabled() -> bool:
+    return _cfg_bool('DailyWifeEnableGroupMember', False)
+
+
+def _marry_member_enabled() -> bool:
+    return _cfg_bool('DailyWifeMarryGroupMemberEnabled', False)
+
+
+def _member_probability() -> float:
+    return _cfg_probability('DailyWifeGroupMemberProbability', 0.1)
+
+
+def _valid_member_text(value: Any) -> str:
+    text = str(value or '').strip()
+    if text in {'', '1', 'None', 'none', 'NULL', 'null'}:
+        return ''
+    return text
+
+
+def _member_avatar_cache_path(user_id: str) -> Path:
+    safe_user_id = re.sub(r'[^0-9A-Za-z_-]+', '_', str(user_id)) or 'unknown'
+    return BASE_DIR / 'group_member_avatar_cache' / f'{safe_user_id}.jpg'
+
+
+def _usable_cached_avatar(path: Path) -> bool:
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except Exception:
+        return False
+
+
+def _resolve_member_avatar(user_id: str, avatar_source: str) -> str:
+    cache_path = _member_avatar_cache_path(user_id)
+    if _usable_cached_avatar(cache_path):
+        return str(cache_path)
+
+    source = _valid_member_text(avatar_source)
+    if not source or source.startswith(('http://', 'https://')):
+        return ''
+
+    try:
+        local_path = Path(source)
+        if local_path.is_file():
+            return str(local_path)
+    except Exception:
+        pass
+    return ''
+
+
+async def _load_group_member_candidates(ev: Event) -> tuple[MemberCandidate, ...]:
+    if not ev.group_id:
+        return ()
+
+    try:
+        users = await CoreUser.get_group_all_user(str(ev.group_id))
+    except Exception as exc:
+        logger.warning(f'[gs_wuwa_daily_wife] 读取 GsCore 群成员缓存失败: {exc}')
+        return ()
+
+    bot_ids = {
+        str(item).strip()
+        for item in (
+            ev.bot_id,
+            getattr(ev, 'real_bot_id', ''),
+            getattr(ev, 'bot_self_id', ''),
+            getattr(ev, 'self_id', ''),
+        )
+        if str(item or '').strip()
+    }
+    excluded_user_ids = {str(ev.user_id), *bot_ids}
+    preferred_bot_id = str(getattr(ev, 'real_bot_id', '') or ev.bot_id or '').strip()
+    exact: dict[str, MemberCandidate] = {}
+    fallback: dict[str, MemberCandidate] = {}
+
+    for user in users or []:
+        user_id = str(getattr(user, 'user_id', '') or '').strip()
+        if not user_id or user_id in excluded_user_ids:
+            continue
+        name = _valid_display_name(getattr(user, 'user_name', ''), user_id) or user_id
+        avatar = _valid_member_text(getattr(user, 'user_icon', ''))
+        candidate = MemberCandidate(name=name, user_id=user_id, avatar=avatar)
+        fallback[user_id] = candidate
+        if preferred_bot_id and str(getattr(user, 'bot_id', '') or '').strip() == preferred_bot_id:
+            exact[user_id] = candidate
+
+    result = exact or fallback
+    return tuple(sorted(result.values(), key=lambda item: (item.name, item.user_id)))
+
+
+async def _resolve_member_candidate_avatar(member: MemberCandidate) -> MemberCandidate:
+    avatar = await asyncio.to_thread(_resolve_member_avatar, member.user_id, member.avatar)
+    return MemberCandidate(member.name, member.user_id, avatar)
+
+
+async def _pick_group_member(ev: Event, rng: random.Random) -> MemberCandidate | None:
+    candidates = list(await _load_group_member_candidates(ev))
+    if not candidates:
+        return None
+
+    rng.shuffle(candidates)
+    for member in candidates:
+        return await _resolve_member_candidate_avatar(member)
+    return None
+
+
+async def _roll_group_member_wife(ev: Event, user_id: str | int | None = None, rng: random.Random | None = None) -> WifeRecord | None:
+    if not _member_feature_enabled() or not ev.group_id:
+        return None
+
+    probability = _member_probability()
+    if probability <= 0:
+        return None
+
+    key = _user_key(ev, user_id)
+    hit_rng = rng or _daily_rng(ev, key, 'group_member_probability')
+    if hit_rng.random() >= probability:
+        return None
+
+    pick_rng = rng or _daily_rng(ev, key, 'group_member_pick')
+    member = await _pick_group_member(ev, pick_rng)
+    if member is None:
+        return None
+    return WifeRecord.from_member(member)
+
+
 def _load_wife_data() -> dict[str, Any]:
     path = _wife_data_path()
     if not path.is_file():
@@ -496,12 +519,20 @@ def _get_today_context(data: dict[str, Any], ev: Event) -> dict[str, Any]:
     context = day.setdefault(_context_key(ev), {})
     context.setdefault('wives', {})
     context.setdefault('husbands', {})
+    context.setdefault('marry_members', {})
     context.setdefault('rob_attempts', {})
     return context
 
 
 def _record_to_dict(record: WifeRecord, ev: Event | None = None, user_id: str | int | None = None) -> dict[str, Any]:
-    data: dict[str, Any] = {'name': record.name, 'role_ids': list(record.role_ids), 'image': record.image}
+    data: dict[str, Any] = {
+        'name': record.name,
+        'role_ids': list(record.role_ids),
+        'image': record.image,
+        'record_type': record.record_type,
+    }
+    if record.target_user_id:
+        data['target_user_id'] = record.target_user_id
     if ev is not None:
         data.update(
             {
@@ -517,9 +548,9 @@ def _record_to_dict(record: WifeRecord, ev: Event | None = None, user_id: str | 
 
 
 def _is_valid_image_ref(image: str) -> bool:
-    '''图片引用是否有效：http(s) 链接或存在的本地文件。'''
-    if image.startswith(('http://', 'https://')):
-        return True
+    '''图片引用是否有效：存在的本地文件。'''
+    if not image:
+        return False
     try:
         return Path(image).is_file()
     except Exception:
@@ -532,10 +563,18 @@ def _record_from_dict(data: dict[str, Any]) -> WifeRecord | None:
             name=str(data['name']),
             role_ids=tuple(str(item) for item in data.get('role_ids', ())),
             image=str(data['image']),
+            record_type=str(data.get('record_type') or 'role'),
+            target_user_id=str(data.get('target_user_id') or ''),
         )
     except Exception:
         return None
-    if not record.name or not _is_valid_image_ref(record.image):
+    if not record.name:
+        return None
+    if record.record_type == 'member':
+        if record.image and not _is_valid_image_ref(record.image):
+            return None
+        return record
+    if not _is_valid_image_ref(record.image):
         return None
     return record
 
@@ -602,6 +641,22 @@ def _build_text(role: RoleCandidate, mode: str = 'wife') -> str:
     return '\n'.join(lines)
 
 
+def _build_member_text(member: MemberCandidate, mode: str = 'daily') -> str:
+    if mode == 'marry':
+        template = str(_cfg('DailyWifeMarryGroupMemberTextTemplate') or '你娶到的群友是{name}')
+    else:
+        template = str(_cfg('DailyWifeGroupMemberTextTemplate') or '你今天的老婆是{name}')
+    lines = [template.format(name=member.name, user_id=member.user_id)]
+    lines.append(f'QQ：{member.user_id}')
+    return '\n'.join(lines)
+
+
+def _record_text(record: WifeRecord, mode: str = 'wife') -> str:
+    if record.record_type == 'member':
+        return _build_member_text(record.to_member())
+    return _build_text(record.to_role(), mode)
+
+
 async def _ensure_daily_wife_record(
     ev: Event, user_id: str | int | None = None, mode: str = 'wife'
 ) -> WifeRecord | None:
@@ -615,6 +670,13 @@ async def _ensure_daily_wife_record(
         record = _record_from_dict(current)
         if record is not None:
             return record
+
+    if mode == 'wife':
+        member_record = await _roll_group_member_wife(ev, key)
+        if member_record is not None:
+            context[bucket][key] = _record_to_dict(member_record, ev, key)
+            _save_wife_data(data)
+            return member_record
 
     candidates, error = await _load_candidates()
     if error or not candidates:
@@ -711,21 +773,12 @@ async def _send_role_image(
     text: str | None = None,
     user_id: str | int | None = None,
 ) -> None:
-    if image_url.startswith(('http://', 'https://')):
-        # 画廊接口：下载图片字节再发送
-        try:
-            image: Any = await _download_image(image_url)
-        except RuntimeError as exc:
-            logger.warning(f'[gs_wuwa_daily_wife] 下载画廊图片失败: {exc}')
-            await bot.send(str(exc))
-            return
-    else:
-        # 本地图片：校验文件存在后直接用路径发送
-        if not Path(image_url).is_file():
-            logger.warning(f'[gs_wuwa_daily_wife] 本地图片不存在: {image_url}')
-            await bot.send('本地图片文件不存在，请检查 custom_role_pile 目录。')
-            return
-        image = Path(image_url)
+    # 只支持本地图片：校验文件存在后直接用路径发送
+    if not Path(image_url).is_file():
+        logger.warning(f'[gs_wuwa_daily_wife] 本地图片不存在: {image_url}')
+        await bot.send('本地图片文件不存在，请检查 custom_role_pile 目录。')
+        return
+    image: Any = Path(image_url)
 
     messages: list[Any] = []
     if user_id is not None and bool(_cfg('DailyWifeAtUser')):
@@ -735,6 +788,45 @@ async def _send_role_image(
         messages.append(text)
     messages.append(MessageSegment.image(image))
     await bot.send(messages if len(messages) > 1 else messages[0])
+
+
+async def _send_local_image(
+    bot: Bot,
+    image_url: str,
+    missing_hint: str,
+    text: str | None = None,
+    user_id: str | int | None = None,
+) -> None:
+    messages: list[Any] = []
+    if user_id is not None and bool(_cfg('DailyWifeAtUser')):
+        messages.append(MessageSegment.at(user_id))
+        messages.append('\n')
+    if text:
+        messages.append(text)
+    if image_url:
+        if not Path(image_url).is_file():
+            logger.warning(f'[gs_wuwa_daily_wife] 本地图片不存在: {image_url}')
+            if not text:
+                await bot.send(missing_hint)
+                return
+        else:
+            messages.append(MessageSegment.image(Path(image_url)))
+
+    if not messages:
+        await bot.send(missing_hint)
+        return
+    await bot.send(messages if len(messages) > 1 else messages[0])
+
+
+async def _send_record_image(
+    bot: Bot,
+    record: WifeRecord,
+    mode: str = 'wife',
+    user_id: str | int | None = None,
+) -> None:
+    text = _record_text(record, mode) if bool(_cfg('DailyWifeSendText')) else None
+    hint = '本地群友头像文件不存在，请稍后重试。' if record.record_type == 'member' else '本地图片文件不存在，请检查 custom_role_pile 目录。'
+    await _send_local_image(bot, record.image, hint, text, user_id)
 
 
 async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife'):
@@ -752,35 +844,63 @@ async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife'):
             stolen_by_name = current_record.get('stolen_by_name') or current_record.get('stolen_by')
             return await bot.send(f'你的{wife_name}已经被{stolen_by_name}抢走了，今天就先忍忍吧~')
 
-    candidates, error = await _load_candidates()
-    if error or not candidates:
-        return await bot.send(error or '没有找到可用角色。')
-
-    candidates = _filter_by_mode(candidates, mode)
-    if not candidates:
-        return await bot.send(f'没有找到可用的{title}角色。')
-
     if bool(_cfg('DailyWifeMasterUnlimited')) and _is_master(ev):
         rng = random.Random()
-        role = rng.choice(candidates)
-        image = rng.choice(role.images)
-        record = WifeRecord.from_role(role, image)
+        record: WifeRecord | None = None
+        if mode == 'wife':
+            record = await _roll_group_member_wife(ev, rng=rng)
+
+        if record is None:
+            candidates, error = await _load_candidates()
+            if error or not candidates:
+                return await bot.send(error or '没有找到可用角色。')
+
+            candidates = _filter_by_mode(candidates, mode)
+            if not candidates:
+                return await bot.send(f'没有找到可用的{title}角色。')
+
+            role = rng.choice(candidates)
+            image = rng.choice(role.images)
+            record = WifeRecord.from_role(role, image)
     else:
         record = await _ensure_daily_wife_record(ev, mode=mode)
         if record is None:
             return await bot.send(f'没有找到可用的{title}角色。')
-        role = record.to_role()
-        image = record.image
 
     _save_daily_wife_record(ev, record, mode=mode)
 
-    logger.info(
-        f'[gs_wuwa_daily_wife] mode={mode} user={ev.user_id} group={ev.group_id or "direct"} '
-        f'role={role.name} ids={role.role_ids} image={image}'
-    )
+    if record.record_type == 'member':
+        member = record.to_member()
+        logger.info(
+            f'[gs_wuwa_daily_wife] mode={mode} user={ev.user_id} group={ev.group_id or "direct"} '
+            f'member={member.name} qq={member.user_id} avatar={record.image}'
+        )
+    else:
+        role = record.to_role()
+        logger.info(
+            f'[gs_wuwa_daily_wife] mode={mode} user={ev.user_id} group={ev.group_id or "direct"} '
+            f'role={role.name} ids={role.role_ids} image={record.image}'
+        )
 
-    text = _build_text(role, mode) if bool(_cfg('DailyWifeSendText')) else None
-    await _send_role_image(bot, role, image, text, ev.user_id)
+    await _send_record_image(bot, record, mode, ev.user_id)
+
+
+async def _send_group_member_wife(bot: Bot, ev: Event):
+    if not _marry_member_enabled():
+        return await bot.send('娶群友功能当前已关闭。')
+    if not ev.group_id:
+        return await bot.send('这个命令只能在群聊里使用。')
+
+    member = await _pick_group_member(ev, _event_rng(ev))
+    if member is None:
+        return await bot.send('没有获取到本群成员，暂时娶不到群友。')
+
+    logger.info(
+        f'[gs_wuwa_daily_wife] marry_member user={ev.user_id} group={ev.group_id} '
+        f'member={member.name} qq={member.user_id} avatar={member.avatar}'
+    )
+    text = _build_member_text(member, 'marry') if bool(_cfg('DailyWifeSendText')) else None
+    await _send_local_image(bot, member.avatar, '本地群友头像文件不存在，请稍后重试。', text, ev.user_id)
 
 
 async def _send_rob_wife(bot: Bot, ev: Event):
@@ -798,6 +918,8 @@ async def _send_rob_wife(bot: Bot, ev: Event):
     target_record = _get_existing_daily_wife_record(ev, target_user_id)
     if target_record is None:
         return await bot.send('对方今天还没有老婆呢~')
+    if target_record.record_type == 'member':
+        return await bot.send('对方今天娶到的是群友，不能被抢走哦~')
 
     data = _load_wife_data()
     context = _get_today_context(data, ev)
@@ -854,6 +976,11 @@ async def daily_husband_list(bot: Bot, ev: Event):
     if not _husband_enabled():
         return await bot.send('今日老公功能当前已关闭。')
     await _send_wife_list(bot, ev, mode='husband')
+
+
+@sv.on_fullmatch('娶群友', block=True)
+async def group_member_wife(bot: Bot, ev: Event):
+    await _send_group_member_wife(bot, ev)
 
 
 @sv.on_prefix(('抢老婆', '抢今日老婆'), block=True)

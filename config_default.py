@@ -9,34 +9,14 @@ from gsuid_core.utils.plugins_config.models import (
 )
 
 CONFIG_DEFAULT: Dict[str, GSC] = {
-    'DailyWifeImageSource': GsStrConfig(
-        '图片数据源',
-        '填 gallery 使用画廊接口（默认）；填 local 使用本地图片目录读取',
-        'gallery',
-    ),
     'DailyWifeCustomRolePilePath': GsStrConfig(
         '本地角色图片目录',
-        '数据源为 local 时生效。留空时自动查找 gsuid_core/data/XutheringWavesUID/custom_role_pile；也可以手动填写绝对路径',
+        '留空时自动查找 gsuid_core/data/XutheringWavesUID/custom_role_pile；也可以手动填写绝对路径',
         '',
     ),
     'DailyWifeRoleMapPath': GsStrConfig(
         '本地角色 ID 对照表路径',
-        '数据源为 local 时生效。留空时优先使用插件内置 role_id_map.txt；也可以手动填写自己的对照表路径',
-        '',
-    ),
-    'DailyWifeGalleryApiUrl': GsStrConfig(
-        '画廊接口地址',
-        'XWUID 画廊角色立绘接口地址，默认使用 https://img.xlinxc.cn/api/xwuid/roles',
-        'https://img.xlinxc.cn/api/xwuid/roles',
-    ),
-    'DailyWifeGalleryUsername': GsStrConfig(
-        '画廊账号',
-        '访问 XWUID 画廊接口和图片所需的账号',
-        '',
-    ),
-    'DailyWifeGalleryPassword': GsStrConfig(
-        '画廊密码',
-        '访问 XWUID 画廊接口和图片所需的密码',
+        '留空时优先使用插件内置 role_id_map.txt；也可以手动填写自己的对照表路径',
         '',
     ),
     'DailyWifeSendText': GsBoolConfig(
@@ -58,6 +38,31 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         '文字模板',
         '可用变量：{name} 角色名，{role_id} 数字 ID',
         '你今天的老婆是{name}',
+    ),
+    'DailyWifeEnableGroupMember': GsBoolConfig(
+        '今日老婆概率抽群友',
+        '开启后「今日老婆」会按配置概率从本群 GSCore 成员缓存里抽取群友，未命中或获取失败时仍抽鸣潮角色',
+        False,
+    ),
+    'DailyWifeGroupMemberProbability': GsStrConfig(
+        '今日老婆抽群友概率',
+        '0 到 1 之间的小数，例如 0.1 表示 10% 概率抽群友；仅在开启今日老婆概率抽群友后生效',
+        '0.1',
+    ),
+    'DailyWifeGroupMemberTextTemplate': GsStrConfig(
+        '今日老婆抽群友文字模板',
+        '今日老婆命中群友时的文字说明模板，可用变量：{name} 群友昵称，{user_id} 群友 QQ',
+        '你今天的老婆是{name}',
+    ),
+    'DailyWifeMarryGroupMemberEnabled': GsBoolConfig(
+        '启用娶群友',
+        '开启后可使用「娶群友」命令，从本群 GSCore 成员缓存里抽取群友',
+        False,
+    ),
+    'DailyWifeMarryGroupMemberTextTemplate': GsStrConfig(
+        '娶群友文字模板',
+        '「娶群友」命令的文字说明模板，可用变量：{name} 群友昵称，{user_id} 群友 QQ',
+        '你娶到的群友是{name}',
     ),
     'DailyWifeHusbandEnabled': GsBoolConfig(
         '启用今日老公',
