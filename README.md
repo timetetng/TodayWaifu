@@ -29,15 +29,34 @@
 | 今日老婆概率抽群友 | 否 | 使用 GSCore 群成员缓存和 QQ 头像。 |
 | 娶群友 | 否 | 使用 GSCore 群成员缓存和 QQ 头像。 |
 
-## 安装
+## 安装位置
 
-把插件目录放到 GSCore 插件目录，并确保最终目录名是：
+把插件目录放到 GSCore 的插件目录里，例如：
 
 ```text
 gsuid_core/gsuid_core/plugins/TodayWaifu
 ```
 
-重启 GSCore，或按你的部署方式刷新插件。
+目录结构大概是：
+
+```text
+gsuid_core/
+├── gsuid_core/
+│   └── plugins/
+│       └── TodayWaifu/
+│           ├── __init__.py
+│           ├── config_default.py
+│           ├── daily_wife_config.py
+│           ├── role_id_map.txt
+│           └── README.md
+└── data/
+    └── XutheringWavesUID/
+        ├── custom_role_pile/
+        └── resource/
+            └── role_pile/
+```
+
+安装后重启 GSCore，或者按你的部署方式刷新插件。
 
 ## 鸣潮角色图片
 
