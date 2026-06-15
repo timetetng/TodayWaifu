@@ -42,7 +42,7 @@ sv = SV('鸣潮今日老婆')
 upload_sv = SV('鸣潮今日老婆上传', pm=1)
 BASE_DIR = Path(__file__).parent
 HELP_IMAGE_PATH = BASE_DIR / 'help.png'
-HELP_ICON_PATH = BASE_DIR / 'icon.png'
+HELP_ICON_PATH = BASE_DIR / 'ICON.png'
 DEFAULT_GALLERY_API_URL = 'https://img.xlinxc.cn/api/xwuid/roles'
 CACHE_TTL_SECONDS = 300
 MEMBER_AVATAR_CACHE_SECONDS = 7 * 24 * 60 * 60
