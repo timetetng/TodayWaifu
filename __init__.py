@@ -42,6 +42,7 @@ sv = SV('鸣潮今日老婆')
 upload_sv = SV('鸣潮今日老婆上传', pm=1)
 BASE_DIR = Path(__file__).parent
 HELP_IMAGE_PATH = BASE_DIR / 'help.png'
+HELP_ICON_PATH = BASE_DIR / 'icon.png'
 DEFAULT_GALLERY_API_URL = 'https://img.xlinxc.cn/api/xwuid/roles'
 CACHE_TTL_SECONDS = 300
 MEMBER_AVATAR_CACHE_SECONDS = 7 * 24 * 60 * 60
@@ -2079,9 +2080,10 @@ async def rob_wife_at(bot: Bot, ev: Event):
 
 
 # 注册到 GsCore 帮助一览页（core帮助）
-if HELP_IMAGE_PATH.is_file():
+# icon 必须是带 alpha 的方形小图标，否则核心合成帮助图时会报 bad transparency mask
+if HELP_ICON_PATH.is_file():
     try:
-        with Image.open(HELP_IMAGE_PATH) as _help_icon:
-            register_help('TodayWaifu', '今日老婆帮助', _help_icon.copy())
+        with Image.open(HELP_ICON_PATH) as _help_icon:
+            register_help('TodayWaifu', '今日老婆帮助', _help_icon.convert('RGBA'))
     except Exception as exc:
         logger.warning(f'{LOG_PREFIX} 注册插件帮助失败: {exc}')
