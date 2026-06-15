@@ -6,39 +6,74 @@
 
 <p align="center">GSCore / GsUID 用的鸣潮「今日老婆」插件。</p>
 
+<p align="center">每日抽老婆 / 老公 / 群友，支持抢老婆、自定义老婆图库、萝莉图库与图文帮助。</p>
+
 > 本项目采用 **GNU General Public License v3.0（GPLv3）** 开源。
 
-## 功能
+## 功能一览
 
-- `今日老婆` / `娶婆娘`：抽鸣潮女角色；可配置概率抽群友。
-- `今日老公`：抽鸣潮男角色，需要先开启配置。
-- `老婆列表` / `老公列表`：查看本群当天记录。
-- `抢老婆`：抢别人当天抽到的鸣潮角色老婆。
+- `今日老婆` / `娶婆娘`：抽鸣潮女角色，当天固定；可按概率抽群友。
+- `今日老公`：抽鸣潮男角色，需先在配置开启。
+- `今日萝莉`：从本地萝莉图库随机发一张，与老婆/老公/群友完全独立。
 - `娶群友`：只抽群友，不依赖 XWUID。
-- 主人命令：创建、上传、查看、删除自定义老婆图片。
+- `抢老婆 @对方`：抢走对方当天抽到的鸣潮角色老婆。
+- `老婆列表` / `老公列表`：查看本群当天记录。
+- `今日老婆帮助`：发送图文帮助卡片，并注册到 GSCore「core帮助」一览页。
+- 主人命令：创建 / 上传 / 查看 / 删除自定义老婆图片；下载 / 删除萝莉图库。
 
-## 依赖说明
+## 命令
 
-插件本体是独立 GSCore / GsUID 插件。鸣潮角色图片默认读取本地 XutheringWavesUID（XWUID）资源，也可以在控制台切换到图库接口。
+### 普通命令（所有人可用）
 
-| 功能 | 是否依赖 XWUID | 说明 |
+| 命令 | 说明 | 相关配置 |
 | --- | --- | --- |
-| 今日老婆 | 本地模式依赖；图库模式不依赖 | 本地模式读取鸣潮角色图片，图库模式从接口获取。 |
-| 今日老公 | 仅本地模式可用 | 图库模式下禁止使用今日老公，会直接提示。 |
-| 抢老婆 | 是 | 抢的是别人当天抽到的鸣潮角色老婆。 |
-| 老婆列表 / 老公列表 | 间接依赖 | 记录来自抽取结果。 |
-| 今日老婆概率抽群友 | 否 | 使用 GSCore 群成员缓存和 QQ 头像。 |
-| 娶群友 | 否 | 使用 GSCore 群成员缓存和 QQ 头像。 |
+| `今日老婆` / `娶婆娘` | 抽鸣潮老婆，当天固定；可配置概率抽群友 | `DailyWifeEnableGroupMember` |
+| `今日老公` | 抽鸣潮老公 | `DailyWifeHusbandEnabled`；图库模式不可用 |
+| `今日萝莉` | 从萝莉图库随机发一张 | 需先由主人「下载萝莉图片」 |
+| `娶群友` | 只抽群友 | `DailyWifeMarryGroupMemberEnabled` |
+| `抢老婆 @对方` / `抢今日老婆` / `抢婆娘` | 抢对方当天老婆，每天一次 | `DailyWifeRobEnabled` |
+| `老婆列表` / `今日老婆列表` | 查看本群今日老婆记录 | 无 |
+| `老公列表` / `今日老公列表` | 查看本群今日老公记录 | 无 |
+| `今日老婆帮助` | 发送图文帮助卡片 | 无 |
 
-## 安装位置
+### 主人命令（自定义老婆）
 
-把插件目录放到 GSCore 的插件目录里，例如：
+| 命令 | 说明 |
+| --- | --- |
+| `老婆创建<角色名>` | 新建一个自定义老婆角色 |
+| `老婆上传图片<角色名>`（附带图片） | 给该角色上传立绘，返回图片 ID |
+| `老婆图片列表<角色名>` / `老婆图片<角色名>` | 查看已上传图片及对应图片 ID |
+| `老婆删除图片<角色名> <图片ID>` | 删除该角色的某一张图片 |
+| `老婆删除<角色名>` | 删除整个自定义老婆（需二次确认） |
+| `老婆删除确认` / `老婆删除取消` | 确认 / 取消上一步删除 |
+
+### 主人命令（萝莉图库）
+
+| 命令 | 说明 |
+| --- | --- |
+| `下载萝莉图片` | 从远程仓库下载图包，自动 SHA256 查重，跳过重复 |
+| `删除萝莉图片` | 清空全部已下载的萝莉图片 |
+
+萝莉图库与「今日老婆 / 今日老公 / 群友 / 自定义老婆」完全无关，是独立命令和独立目录。图包来源：`https://github.com/nnlmc/waifu-gallery`。
+
+### Debug 模式
+
+开启 `DailyWifeDebugMode` 后，主人可无限抽、指定角色名，且不写入当天列表：
+
+```text
+今日老婆 达妮娅
+今日老公 忌炎
+```
+
+## 安装
+
+把插件目录放进 GSCore 的插件目录，例如：
 
 ```text
 gsuid_core/gsuid_core/plugins/TodayWaifu
 ```
 
-目录结构大概是：
+目录结构大致如下：
 
 ```text
 gsuid_core/
@@ -49,114 +84,100 @@ gsuid_core/
 │           ├── config_default.py
 │           ├── daily_wife_config.py
 │           ├── role_id_map.txt
+│           ├── ICON.png            # 插件图标（帮助一览用）
+│           ├── help.png            # 「今日老婆帮助」发送的图文卡片
+│           ├── help_preview.html   # 帮助图源文件（本地渲染用，已 gitignore）
 │           └── README.md
 └── data/
+    ├── TodayWaifu/                 # 本插件全部运行时数据（见下）
     └── XutheringWavesUID/
         ├── custom_role_pile/
         └── resource/
             └── role_pile/
 ```
 
-安装后重启 GSCore，或者按你的部署方式刷新插件。
+安装后重启 GSCore，或按你的部署方式刷新插件。
+
+## 数据存储
+
+插件所有运行时数据都写在 GSCore 的 `data/TodayWaifu/` 下，**不再写插件代码目录**，升级 / 卸载不会丢档：
+
+```text
+gsuid_core/data/TodayWaifu/
+├── config.json                  # 插件配置
+├── daily_wife_data.json         # 每日老婆 / 老公 / 抢老婆记录
+├── group_member_avatar_cache/   # 群友头像缓存
+├── custom_role_map.txt          # 自定义老婆角色 ID 对照
+├── custom_role_pile/            # 自定义老婆图片
+└── loli_images/                 # 萝莉图库
+```
+
+> 旧版本曾把 `config.json` 和 `daily_wife_data.json` 放在插件目录，新版本会在首次加载时**自动迁移**到 `data/TodayWaifu/`，确认无误后可手动清理插件目录下的旧文件。
 
 ## 鸣潮角色图片
 
-角色图片有两种数据源，可在控制台配置 `DailyWifeImageSource`：
+角色图片有两种数据源，由控制台配置 `DailyWifeImageSource` 决定：
 
 - `local`：读取本地 XWUID 图片资源。
 - `gallery`：读取 XWUID 图库接口并下载图片发送。
 
-本地模式默认会查找：
+本地模式默认查找：
 
 ```text
 gsuid_core/data/XutheringWavesUID/custom_role_pile
 gsuid_core/data/XutheringWavesUID/resource/role_pile
 ```
 
-如果路径不在默认位置，在控制台配置：
+如不在默认位置，用 `DailyWifeCustomRolePilePath` 指定目录。
 
-```text
-DailyWifeCustomRolePilePath
-```
+图库模式使用 `DailyWifeGalleryApiUrl` / `DailyWifeGalleryUsername` / `DailyWifeGalleryPassword`。图库模式下强制禁用 `今日老公` / `老公列表`，会直接提示「图库模式下禁止使用今日老公」。
 
-图库模式使用以下配置：
+角色 ID 与角色名由插件内置 `role_id_map.txt` 决定，也可用 `DailyWifeRoleMapPath` 指定自己的对照表。
 
-```text
-DailyWifeGalleryApiUrl
-DailyWifeGalleryUsername
-DailyWifeGalleryPassword
-```
+## 依赖说明
 
-图库模式下强制禁止 `今日老公` / `老公列表`，会直接提示“图库模式下禁止使用今日老公”。
+插件本体是独立 GSCore / GsUID 插件。鸣潮角色图片默认读取本地 XutheringWavesUID（XWUID）资源，也可在控制台切换到图库接口。
 
-角色 ID 和角色名由插件内置 `role_id_map.txt` 决定；也可以用 `DailyWifeRoleMapPath` 指定自己的对照表。
-
-## 自定义老婆图片
-
-以下命令需要 GSCore 主人权限。
-
-```text
-老婆创建达妮娅老婆
-老婆上传图片达妮娅
-老婆图片列表达妮娅
-老婆删除图片达妮娅 abcd1234
-老婆删除达妮娅
-老婆删除确认
-老婆删除取消
-```
-
-自定义上传内容保存在 GSCore / 早柚核心的数据目录：
-
-```text
-gsuid_core/data/TodayWaifu/custom_role_pile/
-gsuid_core/data/TodayWaifu/custom_role_map.txt
-```
-
-不会写进 XWUID 的 `custom_role_pile`，避免和 XWUID 面板图混在一起。
-
-## 命令
-
-| 命令 | 说明 | 配置 |
+| 功能 | 是否依赖 XWUID | 说明 |
 | --- | --- | --- |
-| `今日老婆` | 抽鸣潮老婆；可配置概率抽群友 | `DailyWifeEnableGroupMember` |
-| `娶婆娘` | `今日老婆` 别名 | 同上 |
-| `老婆列表` | 查看本群今日老婆记录 | 无 |
-| `今日老公` | 抽鸣潮老公 | `DailyWifeHusbandEnabled`；图库模式不可用 |
-| `老公列表` | 查看本群今日老公记录 | 无 |
-| `娶群友` | 只抽群友 | `DailyWifeMarryGroupMemberEnabled` |
-| `抢老婆 @对方` | 抢别人当天老婆 | `DailyWifeRobEnabled` |
-| `抢今日老婆 @对方` | `抢老婆` 别名 | 同上 |
-| `抢婆娘 @对方` | `抢老婆` 别名 | 同上 |
-
-Debug 模式开启后，主人可以无限抽、指定角色名，且不写入列表：
-
-```text
-今日老婆 达妮娅
-今日老公 忌炎
-```
-
-配置项：`DailyWifeDebugMode`。
+| 今日老婆 | 本地模式依赖；图库模式不依赖 | 本地读取角色图片，图库从接口获取 |
+| 今日老公 | 仅本地模式可用 | 图库模式下禁用并提示 |
+| 抢老婆 | 是 | 抢的是别人当天抽到的鸣潮角色老婆 |
+| 老婆列表 / 老公列表 | 间接依赖 | 记录来自抽取结果 |
+| 今日老婆概率抽群友 / 娶群友 | 否 | 使用 GSCore 群成员缓存和 QQ 头像 |
+| 今日萝莉 | 否 | 使用独立萝莉图库目录 |
 
 ## 常用配置
 
 | 配置项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `DailyWifeImageSource` | `local` | 图片数据源；`local` 本地资源，`gallery` 图库接口。 |
-| `DailyWifeCustomRolePilePath` | 空 | 自定义本地角色图片目录，本地模式生效。 |
-| `DailyWifeRoleMapPath` | 空 | 自定义角色 ID 对照表，本地模式生效。 |
-| `DailyWifeGalleryApiUrl` | `https://img.xlinxc.cn/api/xwuid/roles` | 图库接口地址，图库模式生效。 |
-| `DailyWifeGalleryUsername` | 空 | 图库账号。 |
-| `DailyWifeGalleryPassword` | 空 | 图库密码。 |
-| `DailyWifeSendText` | 开启 | 发图片前是否带文字。 |
-| `DailyWifeAtUser` | 开启 | 发送结果时是否艾特触发者。 |
-| `DailyWifeShowRoleId` | 关闭 | 是否显示角色 ID。 |
-| `DailyWifeDebugMode` | 关闭 | 主人调试模式。 |
-| `DailyWifeEnableGroupMember` | 关闭 | `今日老婆` 是否有概率抽群友。 |
-| `DailyWifeGroupMemberProbability` | `0.1` | 抽群友概率。 |
-| `DailyWifeMarryGroupMemberEnabled` | 关闭 | 是否启用 `娶群友`。 |
-| `DailyWifeHusbandEnabled` | 关闭 | 是否启用 `今日老公`。 |
-| `DailyWifeRobEnabled` | 开启 | 是否启用抢老婆。 |
-| `DailyWifeRobSuccessRate` | `0.5` | 抢老婆成功概率。 |
+| `DailyWifeImageSource` | `local` | 图片数据源；`local` 本地资源，`gallery` 图库接口 |
+| `DailyWifeCustomRolePilePath` | 空 | 自定义本地角色图片目录，本地模式生效 |
+| `DailyWifeRoleMapPath` | 空 | 自定义角色 ID 对照表，本地模式生效 |
+| `DailyWifeGalleryApiUrl` | `https://img.xlinxc.cn/api/xwuid/roles` | 图库接口地址，图库模式生效 |
+| `DailyWifeGalleryUsername` | 空 | 图库账号 |
+| `DailyWifeGalleryPassword` | 空 | 图库密码 |
+| `DailyWifeSendText` | 开启 | 发图片前是否带文字 |
+| `DailyWifeReplyPrefixEnabled` | 开启 | 回复是否带「[今日老婆]」前缀 |
+| `DailyWifeAtUser` | 开启 | 发送结果时是否艾特触发者 |
+| `DailyWifeShowRoleId` | 关闭 | 是否显示角色 ID |
+| `DailyWifeDebugMode` | 关闭 | 主人调试模式 |
+| `DailyWifeEnableGroupMember` | 关闭 | `今日老婆` 是否有概率抽群友 |
+| `DailyWifeGroupMemberProbability` | `0.1` | 抽群友概率 |
+| `DailyWifeMarryGroupMemberEnabled` | 关闭 | 是否启用 `娶群友` |
+| `DailyWifeHusbandEnabled` | 关闭 | 是否启用 `今日老公` |
+| `DailyWifeRobEnabled` | 开启 | 是否启用抢老婆 |
+| `DailyWifeRobSuccessRate` | `0.5` | 抢老婆成功概率 |
+
+文字模板类配置（`DailyWifeTextTemplate` / `DailyHusbandTextTemplate` / `DailyWifeGroupMemberTextTemplate` / `DailyWifeMarryGroupMemberTextTemplate` / `DailyWifeRobSuccessTemplate`）可在控制台自定义提示文案，支持 `{name}`、`{role_id}`、`{user_id}`、`{target}` 等变量。
+
+## 帮助图自定义
+
+`今日老婆帮助` 发送的是内置图片 `help.png`，插件运行时**不渲染、不依赖浏览器**。需要改样式时：
+
+1. 编辑帮助图源文件 `help_preview.html`。
+2. 本地起静态服务并用浏览器渲染，截取整页覆盖 `help.png`。
+3. 只提交 `help.png`；`help_preview.html` 与渲染残留已被 `.gitignore` 忽略。
 
 ## 常见问题
 
@@ -171,20 +192,15 @@ gsuid_core/data/XutheringWavesUID/resource/role_pile
 
 没有这些目录时，鸣潮角色相关功能无法正常发图。
 
-### 群友能抽，鸣潮角色不能抽？
+### `今日萝莉` 提示还没有图片
 
-群友功能只依赖 GSCore 群成员缓存和 QQ 头像；鸣潮角色功能依赖 XWUID 本地图片。
+先用主人账号发送 `下载萝莉图片`，下载完成后再发 `今日萝莉`。
 
-### `今日老公` / `娶群友` 没反应？
+### `今日老公` / `娶群友` 没反应
 
-先在控制台开启：
+先在控制台开启 `DailyWifeHusbandEnabled` / `DailyWifeMarryGroupMemberEnabled`。
 
-```text
-DailyWifeHusbandEnabled
-DailyWifeMarryGroupMemberEnabled
-```
-
-### 抢不了别人老婆？
+### 抢不了别人老婆
 
 常见原因：抢老婆功能关闭、对方今天没抽、自己已经抢过一次、抢的是自己，或对方抽到的是群友。
 
@@ -194,4 +210,4 @@ DailyWifeMarryGroupMemberEnabled
 
 ## 开源协议
 
-GPLv3。你可以使用、修改和分发，但需要保留许可证与版权声明；分发修改版时按 GPLv3 继续开放对应源码。
+GPLv3。你可以使用、修改和分发，但需保留许可证与版权声明；分发修改版时按 GPLv3 继续开放对应源码。
