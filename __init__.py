@@ -178,6 +178,13 @@ class WifeRecord:
         return MemberCandidate(self.name, self.target_user_id, self.image)
 
 
+@dataclass(frozen=True)
+class LoliImageDownloadResult:
+    saved: int
+    duplicated: int
+    skipped: int
+
+
 def _cfg(key: str) -> Any:
     return DailyWifeConfig.get_config(key).data
 
@@ -912,17 +919,24 @@ def _download_loli_zip(zip_path: Path) -> None:
         raise RuntimeError('下载到的文件不是有效 zip 压缩包。')
 
 
-def _extract_loli_images(zip_path: Path) -> int:
-    tmp_root = _loli_image_tmp_root()
-    target_root = _loli_image_root()
-    if tmp_root.exists():
-        if tmp_root.is_dir():
-            shutil.rmtree(tmp_root)
-        else:
-            tmp_root.unlink()
-    tmp_root.mkdir(parents=True, exist_ok=True)
+def _existing_loli_image_hashes() -> set[str]:
+    hashes: set[str] = set()
+    for path in _loli_image_paths():
+        try:
+            hashes.add(hashlib.sha256(path.read_bytes()).hexdigest())
+        except OSError as exc:
+            logger.warning(f'{LOG_PREFIX} 读取萝莉图片用于查重失败: {path} -> {exc}')
+    return hashes
 
-    count = 0
+
+def _extract_loli_images(zip_path: Path) -> LoliImageDownloadResult:
+    target_root = _loli_image_root()
+    target_root.mkdir(parents=True, exist_ok=True)
+    existing_hashes = _existing_loli_image_hashes()
+
+    saved = 0
+    duplicated = 0
+    skipped = 0
     total_size = 0
     try:
         with zipfile.ZipFile(zip_path) as archive:
@@ -932,37 +946,37 @@ def _extract_loli_images(zip_path: Path) -> int:
                 filename = Path(info.filename.replace('\\', '/')).name
                 suffix = Path(filename).suffix.lower()
                 if suffix not in IMAGE_EXTENSIONS:
+                    skipped += 1
                     continue
                 if info.file_size <= 0 or info.file_size > UPLOAD_IMAGE_MAX_BYTES:
+                    skipped += 1
                     continue
                 total_size += info.file_size
                 if total_size > LOLI_IMAGE_ZIP_MAX_BYTES:
                     raise RuntimeError('图片压缩包解压后体积过大。')
-                image_name = _safe_loli_image_name(filename, index)
-                image_path = _unique_loli_image_path(tmp_root, image_name)
                 with archive.open(info) as source:
                     data = source.read(UPLOAD_IMAGE_MAX_BYTES + 1)
                 if not data or len(data) > UPLOAD_IMAGE_MAX_BYTES:
+                    skipped += 1
                     continue
+                image_hash = hashlib.sha256(data).hexdigest()
+                if image_hash in existing_hashes:
+                    duplicated += 1
+                    continue
+                image_name = _safe_loli_image_name(filename, index)
+                image_path = _unique_loli_image_path(target_root, image_name)
                 image_path.write_bytes(data)
-                count += 1
+                existing_hashes.add(image_hash)
+                saved += 1
     except zipfile.BadZipFile as exc:
         raise RuntimeError('图片压缩包解压失败。') from exc
 
-    if count <= 0:
-        shutil.rmtree(tmp_root)
+    if saved <= 0 and duplicated <= 0:
         raise RuntimeError('图片压缩包里没有找到可用图片。')
-
-    if target_root.exists():
-        if target_root.is_dir():
-            shutil.rmtree(target_root)
-        else:
-            target_root.unlink()
-    tmp_root.rename(target_root)
-    return count
+    return LoliImageDownloadResult(saved=saved, duplicated=duplicated, skipped=skipped)
 
 
-def _download_and_extract_loli_images() -> int:
+def _download_and_extract_loli_images() -> LoliImageDownloadResult:
     zip_path = _custom_upload_data_root() / 'loli_images.zip.tmp'
     try:
         _download_loli_zip(zip_path)
@@ -970,6 +984,17 @@ def _download_and_extract_loli_images() -> int:
     finally:
         if zip_path.exists():
             zip_path.unlink()
+
+
+def _delete_loli_images() -> int:
+    root = _loli_image_root()
+    count = len(_loli_image_paths())
+    if root.exists():
+        if root.is_dir():
+            shutil.rmtree(root)
+        else:
+            root.unlink()
+    return count
 
 
 async def _load_candidates() -> tuple[tuple[RoleCandidate, ...] | None, str | None]:
@@ -1642,12 +1667,21 @@ async def _send_download_loli_images(bot: Bot, ev: Event) -> None:
     logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 触发下载萝莉图片命令')
     await _send_loli_text(bot, '开始下载萝莉图片，请稍等...')
     try:
-        count = await asyncio.to_thread(_download_and_extract_loli_images)
+        result = await asyncio.to_thread(_download_and_extract_loli_images)
     except RuntimeError as exc:
         logger.warning(f'{LOG_PREFIX} 下载萝莉图片失败: {exc}')
         return await _send_loli_text(bot, str(exc))
 
-    await _send_loli_text(bot, f'萝莉图片下载完成，共导入 {count} 张。')
+    await _send_loli_text(
+        bot,
+        f'萝莉图片下载完成\n新增：{result.saved} 张\n重复跳过：{result.duplicated} 张\n无效跳过：{result.skipped} 个',
+    )
+
+
+async def _send_delete_loli_images(bot: Bot, ev: Event) -> None:
+    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 触发删除萝莉图片命令')
+    count = await asyncio.to_thread(_delete_loli_images)
+    await _send_loli_text(bot, f'已删除全部萝莉图片，共 {count} 张。')
 
 
 async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife', specified_name: str = ''):
@@ -1965,6 +1999,11 @@ async def custom_wife_delete_role(bot: Bot, ev: Event):
 @upload_sv.on_fullmatch('下载萝莉图片', block=True)
 async def download_loli_images(bot: Bot, ev: Event):
     await _send_download_loli_images(bot, ev)
+
+
+@upload_sv.on_fullmatch('删除萝莉图片', block=True)
+async def delete_loli_images(bot: Bot, ev: Event):
+    await _send_delete_loli_images(bot, ev)
 
 
 @sv.on_fullmatch('今日萝莉', block=True)
