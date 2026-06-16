@@ -66,6 +66,7 @@ LOG_PREFIX = '[鸣潮今日老婆]'
 LOLI_DOWNLOAD_LOG_PREFIX = '[今日萝莉下载]'
 REPLY_PREFIX = '[今日老婆]'
 LOLI_REPLY_PREFIX = '[今日萝莉]'
+SHOTA_REPLY_PREFIX = '[今日正太]'
 
 
 def _with_loli_reply_prefix(text: str) -> str:
@@ -80,6 +81,20 @@ def _with_loli_reply_prefix(text: str) -> str:
 
 async def _send_loli_text(bot: Bot, text: str, *args: Any, **kwargs: Any) -> Any:
     return await bot.send(_with_loli_reply_prefix(text), *args, **kwargs)
+
+
+def _with_shota_reply_prefix(text: str) -> str:
+    if not text.strip():
+        return text
+    stripped = text.lstrip()
+    leading = text[: len(text) - len(stripped)]
+    if stripped.startswith(SHOTA_REPLY_PREFIX):
+        return text
+    return f'{leading}{SHOTA_REPLY_PREFIX}{stripped}'
+
+
+async def _send_shota_text(bot: Bot, text: str, *args: Any, **kwargs: Any) -> Any:
+    return await bot.send(_with_shota_reply_prefix(text), *args, **kwargs)
 
 
 def _reply_text(text: str) -> str:
@@ -2476,6 +2491,12 @@ async def daily_wife_update_log(bot: Bot, ev: Event):
 @sv.on_fullmatch('今日萝莉', block=True)
 async def daily_loli(bot: Bot, ev: Event):
     await _send_loli_image(bot, ev)
+
+
+@sv.on_fullmatch('今日正太', block=True)
+async def daily_shota(bot: Bot, ev: Event):
+    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 触发今日正太命令')
+    await _send_shota_text(bot, '今日正太功能正在完善，敬请期待~')
 
 
 @sv.on_prefix(('今日老婆', '娶婆娘'), block=True)
