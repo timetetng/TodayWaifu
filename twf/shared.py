@@ -42,7 +42,7 @@ Plugins(
 
 sv = SV('鸣潮今日老婆')
 upload_sv = SV('鸣潮今日老婆上传', pm=1)
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent.parent
 HELP_IMAGE_PATH = BASE_DIR / 'help.png'
 HELP_ICON_PATH = BASE_DIR / 'ICON.png'
 DEFAULT_GALLERY_API_URL = 'https://img.xlinxc.cn/api/xwuid/roles'
