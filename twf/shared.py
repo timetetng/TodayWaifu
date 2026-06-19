@@ -1016,6 +1016,9 @@ def _record_to_dict(record: WifeRecord, ev: Event | None = None, user_id: str | 
 def _is_valid_image_ref(image: str) -> bool:
     if not image:
         return False
+    # 图库模式下 image 是 http(s) URL，不是本地文件，发送时再下载校验
+    if image.startswith(('http://', 'https://')):
+        return True
     try:
         return Path(image).is_file()
     except Exception:
