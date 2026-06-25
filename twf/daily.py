@@ -300,6 +300,82 @@ async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife', specified_na
     await _send_record_image(bot, record, mode, ev.user_id)
 
 
+def _assignment_role_name(ev: Event, target_user_id: str) -> str:
+    text = str(ev.text or '').strip()
+    if not text:
+        return ''
+
+    text = re.sub(r'\[CQ:at,[^\]]*\]', ' ', text)
+    text = re.sub(r'<(?:qqbot-)?at[^>]*>', ' ', text)
+    text = re.sub(r'<qqbot-at-user[^>]*/?>', ' ', text)
+    text = re.sub(r'@\S+', ' ', text)
+    if target_user_id:
+        text = text.replace(target_user_id, ' ')
+    text = re.sub(r'\b(?:qq|QQ|id|user_id|openid|open_id)\s*[:=]\s*\S+', ' ', text)
+    text = re.sub(r'[，,。；;：:\n\r\t]+', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    for prefix in ('给', '把', '将', '为'):
+        if text.startswith(prefix):
+            text = text[len(prefix):].strip()
+    for word in ('分配老婆', '分配今日老婆', '分配', '老婆'):
+        text = text.replace(word, ' ')
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def _find_assignable_wife(candidates: tuple[RoleCandidate, ...], role_name: str) -> RoleCandidate | None:
+    target = _normalize_role_name(role_name)
+    for candidate in candidates:
+        if _normalize_role_name(candidate.name) == target:
+            return candidate
+    for candidate in candidates:
+        if role_name in candidate.role_ids:
+            return candidate
+    return None
+
+
+async def _send_assign_wife(bot: Bot, ev: Event) -> None:
+    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 发起主人分配老婆命令')
+    if not _is_master(ev):
+        return await _send_prefixed(bot, '只有机器人主人可以分配老婆。')
+
+    target_user_id = _get_event_target_user_id(ev)
+    if not target_user_id:
+        return await _send_prefixed(bot, '要分配给谁？用法：分配老婆 @对方 角色名')
+
+    role_name = _assignment_role_name(ev, str(target_user_id))
+    if not role_name:
+        return await _send_prefixed(bot, '要分配哪个老婆？用法：分配老婆 @对方 角色名')
+
+    candidates, error = await _load_candidates('wife')
+    if error or not candidates:
+        return await _send_prefixed(bot, error or '没有找到可用角色。')
+
+    candidates = _filter_by_mode(candidates, 'wife')
+    role = _find_assignable_wife(candidates, role_name)
+    if role is None:
+        return await _send_prefixed(bot, f'未找到名为“{role_name}”的老婆角色。')
+
+    image = random.choice(role.images)
+    record = WifeRecord.from_role(role, image)
+    target_key = str(target_user_id)
+
+    data = _load_wife_data()
+    context = _get_today_context(data, ev)
+    context['wives'][target_key] = _record_to_dict(record, ev, target_key)
+    context['wives'][target_key]['assigned_by'] = _user_key(ev)
+    context['wives'][target_key]['assigned_by_name'] = _user_display_name(ev)
+    if isinstance(context.get('safe_wives'), dict):
+        context['safe_wives'].pop(target_key, None)
+    _save_wife_data(data)
+
+    logger.info(
+        f'{LOG_PREFIX} 主人 {ev.user_id} 将老婆 {role.name} 分配给 {target_key}, '
+        f'ids={role.role_ids} image={image}'
+    )
+    await _send_role_image(bot, role, image, f'已把今天的老婆{role.name}分配给对方。', target_key)
+
+
 async def _send_group_member_wife(bot: Bot, ev: Event):
     logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 触发了娶群友命令')
     if not _marry_member_enabled():
@@ -470,6 +546,16 @@ async def daily_wife_list(bot: Bot, ev: Event):
 @sv.on_fullmatch(('今日老婆总排行', '老婆总排行'), block=True)
 async def daily_wife_total_rank(bot: Bot, ev: Event):
     await _send_total_wife_rank(bot, ev)
+
+
+@upload_sv.on_prefix(('分配老婆', '分配今日老婆'), block=True)
+async def assign_wife(bot: Bot, ev: Event):
+    await _send_assign_wife(bot, ev)
+
+
+@upload_sv.on_fullmatch(('分配老婆', '分配今日老婆'), block=True)
+async def assign_wife_usage(bot: Bot, ev: Event):
+    await _send_assign_wife(bot, ev)
 
 
 @sv.on_prefix('今日老公', block=True)
