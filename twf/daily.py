@@ -24,8 +24,9 @@ def _build_text(role: RoleCandidate, mode: str = 'wife') -> str:
 def _build_member_text(member: MemberCandidate, mode: str = 'daily') -> str:
     if mode == 'marry':
         template = str(_cfg('DailyWifeMarryGroupMemberTextTemplate') or '你娶到的群友是{name}')
-    elif mode == 'marry_owner':
-        template = str(_cfg('DailyWifeMarryOwnerTextTemplate') or '你娶到的群主是{name}')
+    # 娶群主功能已停用：保留旧模板逻辑注释，避免继续读取娶群主配置。
+    # elif mode == 'marry_owner':
+    #     template = str(_cfg('DailyWifeMarryOwnerTextTemplate') or '你娶到的群主是{name}')
     else:
         template = str(_cfg('DailyWifeGroupMemberTextTemplate') or '你今天的老婆是{name}')
     lines = [template.format(name=member.name, user_id=member.user_id)]
@@ -396,66 +397,68 @@ async def _send_group_member_wife(bot: Bot, ev: Event):
     await _send_local_image(bot, member.avatar, '本地群友头像文件不存在，请稍后重试。', text, ev.user_id)
 
 
-async def _send_existing_owner_marriage(bot: Bot, ev: Event, existing: dict[str, Any], user_key: str) -> None:
-    if str(existing.get('user_id')) == user_key:
-        member = MemberCandidate(
-            str(existing.get('owner_name') or ''),
-            str(existing.get('owner_user_id') or existing.get('user_id') or ''),
-            str(existing.get('avatar') or ''),
-        )
-        text = _build_member_text(member, 'marry_owner') if bool(_cfg('DailyWifeSendText')) else None
-        await _send_local_image(bot, member.avatar, '本地群主头像文件不存在，请稍后重试。', text, ev.user_id)
-        return
-    owner_name = existing.get('owner_name') or '群主'
-    marrier_name = existing.get('display_name') or existing.get('user_id')
-    await _send_prefixed(bot, f'本群的{owner_name}今天已经被{marrier_name}娶走了，明天再来吧。')
+# 娶群主功能已停用：下面是旧的复用结果发送逻辑，保留注释仅用于以后恢复时参考。
+# async def _send_existing_owner_marriage(bot: Bot, ev: Event, existing: dict[str, Any], user_key: str) -> None:
+#     if str(existing.get('user_id')) == user_key:
+#         member = MemberCandidate(
+#             str(existing.get('owner_name') or ''),
+#             str(existing.get('owner_user_id') or existing.get('user_id') or ''),
+#             str(existing.get('avatar') or ''),
+#         )
+#         text = _build_member_text(member, 'marry_owner') if bool(_cfg('DailyWifeSendText')) else None
+#         await _send_local_image(bot, member.avatar, '本地群主头像文件不存在，请稍后重试。', text, ev.user_id)
+#         return
+#     owner_name = existing.get('owner_name') or '群主'
+#     marrier_name = existing.get('display_name') or existing.get('user_id')
+#     await _send_prefixed(bot, f'本群的{owner_name}今天已经被{marrier_name}娶走了，明天再来吧。')
 
 
-async def _send_group_owner_wife(bot: Bot, ev: Event):
-    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 触发了娶群主命令')
-    if not _marry_owner_enabled():
-        return await _send_prefixed(bot, '娶群主功能当前已关闭。')
-    if not ev.group_id:
-        return await _send_prefixed(bot, '这个命令只能在群聊里使用。')
-
-    user_key = _user_key(ev)
-    data = _load_wife_data()
-    context = _get_today_context(data, ev)
-    existing = context.get('owner_marriage')
-    if isinstance(existing, dict) and existing.get('user_id'):
-        return await _send_existing_owner_marriage(bot, ev, existing, user_key)
-
-    owner = _get_recorded_owner(ev)
-    if owner is None:
-        return await _send_prefixed(bot, '暂时还没有识别到本群群主，等群主发一条消息后再试试吧。')
-
-    resolved = await _resolve_member_candidate_avatar(owner)
-    if resolved is None:
-        return await _send_prefixed(bot, '群主头像获取失败，请稍后重试。')
-
-    # 写入阶段：头像解析含 await，重新加载并二次校验，避免并发下两人都"娶到"群主
-    data = _load_wife_data()
-    context = _get_today_context(data, ev)
-    existing = context.get('owner_marriage')
-    if isinstance(existing, dict) and existing.get('user_id'):
-        return await _send_existing_owner_marriage(bot, ev, existing, user_key)
-
-    context['owner_marriage'] = {
-        'user_id': user_key,
-        'display_name': _user_display_name(ev),
-        'owner_name': resolved.name,
-        'owner_user_id': resolved.user_id,
-        'avatar': resolved.avatar,
-        'updated_at': int(time.time()),
-    }
-    _save_wife_data(data)
-
-    logger.info(
-        f'{LOG_PREFIX} marry_owner user={ev.user_id} group={ev.group_id} '
-        f'owner={resolved.name} qq={resolved.user_id} avatar={resolved.avatar}'
-    )
-    text = _build_member_text(resolved, 'marry_owner') if bool(_cfg('DailyWifeSendText')) else None
-    await _send_local_image(bot, resolved.avatar, '本地群主头像文件不存在，请稍后重试。', text, ev.user_id)
+# 娶群主功能已停用：不再提供命令处理，不再读取群主缓存，也不再写入 owner_marriage。
+# async def _send_group_owner_wife(bot: Bot, ev: Event):
+#     logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 触发了娶群主命令')
+#     if not _marry_owner_enabled():
+#         return await _send_prefixed(bot, '娶群主功能当前已关闭。')
+#     if not ev.group_id:
+#         return await _send_prefixed(bot, '这个命令只能在群聊里使用。')
+#
+#     user_key = _user_key(ev)
+#     data = _load_wife_data()
+#     context = _get_today_context(data, ev)
+#     existing = context.get('owner_marriage')
+#     if isinstance(existing, dict) and existing.get('user_id'):
+#         return await _send_existing_owner_marriage(bot, ev, existing, user_key)
+#
+#     owner = _get_recorded_owner(ev)
+#     if owner is None:
+#         return await _send_prefixed(bot, '暂时还没有识别到本群群主，等群主发一条消息后再试试吧。')
+#
+#     resolved = await _resolve_member_candidate_avatar(owner)
+#     if resolved is None:
+#         return await _send_prefixed(bot, '群主头像获取失败，请稍后重试。')
+#
+#     # 写入阶段：头像解析含 await，重新加载并二次校验，避免并发下两人都"娶到"群主
+#     data = _load_wife_data()
+#     context = _get_today_context(data, ev)
+#     existing = context.get('owner_marriage')
+#     if isinstance(existing, dict) and existing.get('user_id'):
+#         return await _send_existing_owner_marriage(bot, ev, existing, user_key)
+#
+#     context['owner_marriage'] = {
+#         'user_id': user_key,
+#         'display_name': _user_display_name(ev),
+#         'owner_name': resolved.name,
+#         'owner_user_id': resolved.user_id,
+#         'avatar': resolved.avatar,
+#         'updated_at': int(time.time()),
+#     }
+#     _save_wife_data(data)
+#
+#     logger.info(
+#         f'{LOG_PREFIX} marry_owner user={ev.user_id} group={ev.group_id} '
+#         f'owner={resolved.name} qq={resolved.user_id} avatar={resolved.avatar}'
+#     )
+#     text = _build_member_text(resolved, 'marry_owner') if bool(_cfg('DailyWifeSendText')) else None
+#     await _send_local_image(bot, resolved.avatar, '本地群主头像文件不存在，请稍后重试。', text, ev.user_id)
 
 
 
@@ -595,6 +598,7 @@ async def group_member_wife(bot: Bot, ev: Event):
     await _send_group_member_wife(bot, ev)
 
 
-@sv.on_fullmatch('娶群主', block=True)
-async def group_owner_wife(bot: Bot, ev: Event):
-    await _send_group_owner_wife(bot, ev)
+# 娶群主功能已停用：不再注册「娶群主」命令。
+# @sv.on_fullmatch('娶群主', block=True)
+# async def group_owner_wife(bot: Bot, ev: Event):
+#     await _send_group_owner_wife(bot, ev)
