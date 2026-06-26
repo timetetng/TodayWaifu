@@ -1,22 +1,58 @@
 # TodayWaifu
 
 <p align="center">
-  <img src="./ICON.png" width="160" alt="TodayWaifu ICON">
+  <a href="https://github.com/nnlmc/TodayWaifu"><img src="./ICON.png" width="160" alt="TodayWaifu ICON"></a>
 </p>
+<h1 align="center">TodayWaifu</h1>
+<h4 align="center">GSCore / GsUID 用的鸣潮「今日老婆」插件</h4>
+<h4 align="center">每日抽老婆 / 老公 / 群友，支持抢老婆、送老婆、自定义老婆图库、萝莉图库、GitHub 更新记录与图文帮助</h4>
+<div align="center">
+  <a href="https://github.com/nnlmc/TodayWaifu" target="_blank">GitHub</a> &nbsp; · &nbsp;
+  <a href="https://cnb.cool/nnlmc/TodayWaifu" target="_blank">CNB</a> &nbsp; · &nbsp;
+  <a href="https://github.com/Genshin-bots/gsuid_core" target="_blank">gsuid_core</a>
+</div>
 
-<p align="center">GSCore / GsUID 用的鸣潮「今日老婆」插件。</p>
+## 丨安装提醒
 
-<p align="center">每日抽老婆 / 老公 / 群友，支持抢老婆、送老婆、自定义老婆图库、萝莉图库、GitHub 更新记录与图文帮助。</p>
-
-<p align="center">
-  <a href="https://github.com/nnlmc/TodayWaifu">GitHub</a> ｜ <a href="https://cnb.cool/nnlmc/TodayWaifu">CNB</a>
-</p>
-
-> 插件交流、图库账号密码获取请加群：`798949533`。
+> **注意：该插件为 [早柚核心(gsuid_core)](https://github.com/Genshin-bots/gsuid_core) 的扩展，需要先安装好 GsCore 才能使用**
 >
-> 本项目采用 **GNU General Public License v3.0（GPLv3）** 开源。
+> **本插件已上架 GsCore 插件商店，可直接对 bot 发送 `core安装插件老婆`，然后重启 Core 以应用安装**
+>
+> **如果从 CNB 拉取，需要手动克隆到 GsCore 插件目录后重启 Core：**
+>
+> ```bash
+> cd /path/to/gsuid_core/gsuid_core/plugins
+> git clone https://cnb.cool/nnlmc/TodayWaifu.git
+> ```
+>
+> 插件交流、图库账号密码获取请加群：`798949533`
 
-## 功能一览
+安装好的目录结构大致如下：
+
+```text
+gsuid_core/
+├── gsuid_core/
+│   └── plugins/
+│       └── TodayWaifu/
+│           ├── __init__.py
+│           ├── config_default.py
+│           ├── daily_wife_config.py
+│           ├── role_id_map.txt     # 旧版兼容对照表
+│           ├── wife_role_id_map.txt
+│           ├── husband_role_id_map.txt
+│           ├── ICON.png            # 插件图标（帮助一览用）
+│           ├── help.png            # 「今日老婆帮助」发送的图文卡片
+│           ├── help_preview.html   # 帮助图源文件（本地渲染用，已 gitignore）
+│           └── README.md
+└── data/
+    ├── TodayWaifu/                 # 本插件全部运行时数据（见下）
+    └── XutheringWavesUID/
+        ├── custom_role_pile/
+        └── resource/
+            └── role_pile/
+```
+
+## 丨功能一览
 
 - `今日老婆` / `娶婆娘`：抽鸣潮女角色，当天固定；可按概率抽群友。
 - `今日老公`：抽鸣潮男角色，需先在配置开启。
@@ -32,7 +68,7 @@
 - `今日老婆帮助`：发送图文帮助卡片，并注册到 GSCore「core帮助」一览页。
 - 主人命令：分配老婆给指定用户；创建 / 上传 / 查看 / 删除自定义老婆图片；下载 / 删除萝莉图库。
 
-## 命令
+## 丨命令
 
 ### 普通命令（所有人可用）
 
@@ -83,42 +119,7 @@
 今日老公 忌炎
 ```
 
-## 安装
-
-把插件目录放进 GSCore 的插件目录，例如：
-
-```text
-gsuid_core/gsuid_core/plugins/TodayWaifu
-```
-
-目录结构大致如下：
-
-```text
-gsuid_core/
-├── gsuid_core/
-│   └── plugins/
-│       └── TodayWaifu/
-│           ├── __init__.py
-│           ├── config_default.py
-│           ├── daily_wife_config.py
-│           ├── role_id_map.txt     # 旧版兼容对照表
-│           ├── wife_role_id_map.txt
-│           ├── husband_role_id_map.txt
-│           ├── ICON.png            # 插件图标（帮助一览用）
-│           ├── help.png            # 「今日老婆帮助」发送的图文卡片
-│           ├── help_preview.html   # 帮助图源文件（本地渲染用，已 gitignore）
-│           └── README.md
-└── data/
-    ├── TodayWaifu/                 # 本插件全部运行时数据（见下）
-    └── XutheringWavesUID/
-        ├── custom_role_pile/
-        └── resource/
-            └── role_pile/
-```
-
-安装后重启 GSCore，或按你的部署方式刷新插件。
-
-## 数据存储
+## 丨数据存储
 
 插件所有运行时数据都写在 GSCore 的 `data/TodayWaifu/` 下，**不再写插件代码目录**，升级 / 卸载不会丢档：
 
@@ -134,7 +135,7 @@ gsuid_core/data/TodayWaifu/
 
 > 旧版本曾把 `config.json` 和 `daily_wife_data.json` 放在插件目录，新版本会在首次加载时**自动迁移**到 `data/TodayWaifu/`，确认无误后可手动清理插件目录下的旧文件。
 
-## 鸣潮角色图片
+## 丨鸣潮角色图片
 
 角色图片有两种数据源，由控制台配置 `DailyWifeImageSource` 下拉选择决定：
 
@@ -154,7 +155,7 @@ gsuid_core/data/XutheringWavesUID/resource/role_pile
 
 `今日老婆` 角色 ID 与角色名由插件内置 `wife_role_id_map.txt` 决定，`今日老公` 由 `husband_role_id_map.txt` 决定。也可分别用 `DailyWifeWifeRoleMapPath` / `DailyWifeHusbandRoleMapPath` 指定自己的对照表。旧配置 `DailyWifeRoleMapPath` 仍作为老婆表兼容兜底。
 
-## 依赖说明
+## 丨依赖说明
 
 插件本体是独立 GSCore / GsUID 插件。鸣潮角色图片默认读取本地 XutheringWavesUID（XWUID）资源，也可在控制台切换到图库接口。
 
@@ -172,7 +173,7 @@ gsuid_core/data/XutheringWavesUID/resource/role_pile
 | 娶群主 | 否 | GSCore 本身不缓存群主身份，插件自己记录群主发言时的身份，没发言过识别不到 |
 | 今日萝莉 | 否 | 使用独立萝莉图库目录 |
 
-## 常用配置
+## 丨常用配置
 
 | 配置项 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -203,7 +204,7 @@ gsuid_core/data/XutheringWavesUID/resource/role_pile
 
 文字模板类配置（`DailyWifeTextTemplate` / `DailyHusbandTextTemplate` / `DailyWifeGroupMemberTextTemplate` / `DailyWifeMarryGroupMemberTextTemplate` / `DailyWifeMarryOwnerTextTemplate` / `DailyWifeRobSuccessTemplate` / `DailyWifeGiftSuccessTemplate`）可在控制台自定义提示文案，支持 `{name}`、`{role_id}`、`{user_id}`、`{target}` 等变量。
 
-## 帮助图自定义
+## 丨帮助图自定义
 
 `今日老婆帮助` 发送的是内置图片 `help.png`，插件运行时**不渲染、不依赖浏览器**。需要改样式时：
 
@@ -211,7 +212,7 @@ gsuid_core/data/XutheringWavesUID/resource/role_pile
 2. 本地起静态服务并用浏览器渲染，截取整页覆盖 `help.png`。
 3. 只提交 `help.png`；`help_preview.html` 与渲染残留已被 `.gitignore` 忽略。
 
-## 常见问题
+## 丨常见问题
 
 ### `今日老婆` 没图片
 
@@ -240,10 +241,11 @@ gsuid_core/data/XutheringWavesUID/resource/role_pile
 
 常见原因：抢老婆功能关闭、对方今天没抽、自己已经抢过一次、抢的是自己，或对方抽到的是群友。
 
-## 致谢
+## 丨其他
+
+- 本项目仅供学习使用，请勿用于商业用途
+- 本项目采用 **GNU General Public License v3.0（GPLv3）** 开源。你可以使用、修改和分发，但需保留许可证与版权声明；分发修改版时按 GPLv3 继续开放对应源码
+
+## 丨致谢
 
 - [CWalkene](https://github.com/CWalkene)：感谢提供 PR 和改进建议。
-
-## 开源协议
-
-GPLv3。你可以使用、修改和分发，但需保留许可证与版权声明；分发修改版时按 GPLv3 继续开放对应源码。
