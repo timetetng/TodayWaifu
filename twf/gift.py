@@ -163,7 +163,7 @@ async def _accept_gift_wife(bot: Bot, ev: Event) -> None:
     _save_wife_data(data)
 
     role = giver_record.to_role()
-    await _send_role_image(bot, role, giver_record.image, _build_gift_success_text(role, target_user_id), giver_id)
+    await _send_role_image(bot, role, giver_record.image, _build_gift_success_text(role, target_user_id), giver_id, ev.group_id is not None)
 
 
 async def _reject_gift_wife(bot: Bot, ev: Event) -> None:

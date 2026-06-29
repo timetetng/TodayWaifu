@@ -194,12 +194,13 @@ async def _send_record_image(
     record: WifeRecord,
     mode: str = 'wife',
     user_id: str | int | None = None,
+    is_group: bool = True,
 ) -> None:
     text = _record_text(record, mode) if bool(_cfg('DailyWifeSendText')) else None
     if record.record_type == 'member':
-        await _send_local_image(bot, record.image, '本地群友头像文件不存在，请稍后重试。', text, user_id)
+        await _send_local_image(bot, record.image, '本地群友头像文件不存在，请稍后重试。', text, user_id, is_group)
         return
-    await _send_role_image(bot, record.to_role(), record.image, text, user_id)
+    await _send_role_image(bot, record.to_role(), record.image, text, user_id, is_group)
 
 
 
@@ -226,7 +227,7 @@ async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife', specified_na
                 safe_wife = _record_from_dict(safe_record)
                 if safe_wife is not None:
                     logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 展示已有的补偿老婆: {safe_wife.name}')
-                    return await _send_record_image(bot, safe_wife, mode, ev.user_id)
+                    return await _send_record_image(bot, safe_wife, mode, ev.user_id, ev.group_id is not None)
 
             # 未抽过补偿老婆：抽一个，写入 safe_wives
             wife_name = current_record.get('name', '老婆')
@@ -248,6 +249,7 @@ async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife', specified_na
                 bot, safe_wife.to_role(), safe_wife.image,
                 text=f'你的{wife_name}已经被{stolen_by_name}抢走了…\n但你迎来了新的{title}{safe_wife.name}！',
                 user_id=ev.user_id,
+                is_group=ev.group_id is not None,
             )
         if state == 'lost_gifted':
             wife_name = current_record.get('name', '老婆')
@@ -295,7 +297,7 @@ async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife', specified_na
             f'{LOG_PREFIX} mode={mode} user={ev.user_id} group={ev.group_id or "direct"} '
             f'role={role.name} ids={role.role_ids} image={record.image} debug={is_debug_active}'
         )
-    await _send_record_image(bot, record, mode, ev.user_id)
+    await _send_record_image(bot, record, mode, ev.user_id, ev.group_id is not None)
 
 
 def _assignment_role_name(ev: Event, target_user_id: str) -> str:
@@ -371,7 +373,7 @@ async def _send_assign_wife(bot: Bot, ev: Event) -> None:
         f'{LOG_PREFIX} 主人 {ev.user_id} 将老婆 {role.name} 分配给 {target_key}, '
         f'ids={role.role_ids} image={image}'
     )
-    await _send_role_image(bot, role, image, f'已把今天的老婆{role.name}分配给对方。', target_key)
+    await _send_role_image(bot, role, image, f'已把今天的老婆{role.name}分配给对方。', target_key, ev.group_id is not None)
 
 
 async def _send_group_member_wife(bot: Bot, ev: Event):
@@ -390,7 +392,7 @@ async def _send_group_member_wife(bot: Bot, ev: Event):
         f'member={member.name} qq={member.user_id} avatar={member.avatar}'
     )
     text = _build_member_text(member, 'marry') if bool(_cfg('DailyWifeSendText')) else None
-    await _send_local_image(bot, member.avatar, '本地群友头像文件不存在，请稍后重试。', text, ev.user_id)
+    await _send_local_image(bot, member.avatar, '本地群友头像文件不存在，请稍后重试。', text, ev.user_id, ev.group_id is not None)
 
 
 async def _send_wife_list(bot: Bot, ev: Event, mode: str = 'wife'):

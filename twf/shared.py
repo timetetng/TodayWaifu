@@ -1208,6 +1208,7 @@ async def _send_role_image(
     image_url: str,
     text: str | None = None,
     user_id: str | int | None = None,
+    is_group: bool = True,
 ) -> None:
     is_gallery_image = image_url.startswith(('http://', 'https://'))
     if is_gallery_image:
@@ -1225,7 +1226,7 @@ async def _send_role_image(
         image = Path(image_url)
 
     messages: list[Any] = []
-    if user_id is not None and bool(_cfg('DailyWifeAtUser')):
+    if is_group and user_id is not None and bool(_cfg('DailyWifeAtUser')):
         messages.append(MessageSegment.at(user_id))
         messages.append('\n')
     if text:
@@ -1240,9 +1241,10 @@ async def _send_local_image(
     missing_hint: str,
     text: str | None = None,
     user_id: str | int | None = None,
+    is_group: bool = True,
 ) -> None:
     messages: list[Any] = []
-    if user_id is not None and bool(_cfg('DailyWifeAtUser')):
+    if is_group and user_id is not None and bool(_cfg('DailyWifeAtUser')):
         messages.append(MessageSegment.at(user_id))
         messages.append('\n')
     if text:

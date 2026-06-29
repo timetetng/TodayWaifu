@@ -97,7 +97,7 @@ async def _send_rob_wife(bot: Bot, ev: Event) -> None:
     _save_wife_data(data)
 
     role = target_record.to_role()
-    await _send_role_image(bot, role, target_record.image, _build_rob_success_text(role, target_user_id), robber_id)
+    await _send_role_image(bot, role, target_record.image, _build_rob_success_text(role, target_user_id), robber_id, ev.group_id is not None)
 
 
 @sv.on_prefix(('抢老婆', '抢今日老婆', '抢婆娘'), block=True)
