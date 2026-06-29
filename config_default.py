@@ -70,6 +70,16 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         '可用变量：{name} 角色名，{role_id} 数字 ID',
         '你今天的老婆是{name}',
     ),
+    'DailyWifeShowRoleId': GsBoolConfig(
+        '显示角色 ID',
+        '开启后文字说明会额外附带一行"角色ID：xxx"',
+        False,
+    ),
+    'DailyWifeDebugMode': GsBoolConfig(
+        '主人 Debug 模式',
+        '开启后机器人主人可以用"今日老婆 角色名"指定抽取的角色，便于调试',
+        False,
+    ),
     'DailyWifeEnableGroupMember': GsBoolConfig(
         '今日老婆概率抽群友',
         '开启后「今日老婆」会按配置概率从本群 GSCore 成员缓存里抽取群友，未命中或获取失败时仍抽鸣潮角色',

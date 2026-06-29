@@ -415,7 +415,7 @@ async def daily_wife_full(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='wife', specified_name='')
 
 
-@sv.on_fullmatch(('老婆列表', '今日老婆列表'), block=True)
+@sv.on_fullmatch('老婆列表', block=True)
 async def daily_wife_list(bot: Bot, ev: Event):
     await _send_wife_list(bot, ev)
 
@@ -435,6 +435,8 @@ async def daily_husband_prefix(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())
     specified_name = str(ev.text or '').strip()
+    if specified_name == '列表':
+        return await _send_wife_list(bot, ev, mode='husband')
     await _send_daily_wife(bot, ev, mode='husband', specified_name=specified_name)
 
 
@@ -445,7 +447,7 @@ async def daily_husband_full(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='husband', specified_name='')
 
 
-@sv.on_fullmatch(('老公列表', '今日老公列表'), block=True)
+@sv.on_fullmatch('老公列表', block=True)
 async def daily_husband_list(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())

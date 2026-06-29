@@ -10,6 +10,7 @@ from .shared import (
     RoleCandidate,
     _cfg,
     _cfg_bool,
+    _cfg_probability,
     _get_event_target_user_id,
     _get_existing_daily_wife_record,
     _get_today_context,
@@ -30,11 +31,7 @@ from .shared import (
 
 
 def _rob_success_rate() -> float:
-    try:
-        value = float(_cfg('DailyWifeRobSuccessRate', '0.5'))
-    except (TypeError, ValueError):
-        value = 0.5
-    return max(0.0, min(1.0, value))
+    return _cfg_probability('DailyWifeRobSuccessRate', 0.5)
 
 
 def _build_rob_success_text(role: RoleCandidate, target_user_id: str) -> str:
