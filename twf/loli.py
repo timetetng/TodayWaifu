@@ -143,17 +143,14 @@ async def _send_loli_image(bot: Bot, ev: Event) -> None:
         logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 请求今日萝莉，接口: {custom_url}')
         try:
             data = await asyncio.to_thread(lambda: _http_get(custom_url, timeout=15))
-        except Exception as exc:
-            return await _send_loli_text(bot, f'今日萝莉接口请求失败：{exc}')
+        except Exception:
+            return await _send_loli_text(bot, '暂无图片')
         await bot.send([_with_loli_reply_prefix('你今天的萝莉是'), MessageSegment.image(data)])
         return
 
     images = _loli_image_paths()
     if not images:
-        return await _send_loli_text(
-            bot,
-            '还没有萝莉图片，请先在控制台填写「今日萝莉接口地址」，或用「今日萝莉上传」上传本地图片。',
-        )
+        return await _send_loli_text(bot, '暂无图片')
     image = random.choice(images)
     logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 请求今日萝莉，发送本地图片: {image}')
     await bot.send([_with_loli_reply_prefix('你今天的萝莉来啦！'), MessageSegment.image(image)])
