@@ -7,6 +7,14 @@
 <h1 align="center">TodayWaifu</h1>
 <h4 align="center">GSCore / GsUID 用的鸣潮「今日老婆」插件</h4>
 
+<p align="center">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="License"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python"></a>
+  <a href="https://github.com/Genshin-bots/gsuid_core"><img src="https://img.shields.io/badge/framework-GsCore-orange.svg" alt="Framework"></a>
+  <a href="https://github.com/nnlmc/TodayWaifu/issues"><img src="https://img.shields.io/github/issues/nnlmc/TodayWaifu.svg" alt="Issues"></a>
+  <a href="https://github.com/nnlmc/TodayWaifu/stargazers"><img src="https://img.shields.io/github/stars/nnlmc/TodayWaifu.svg?style=flat" alt="Stars"></a>
+</p>
+
 ## 安装提醒
 
 > 该插件为 [早柚核心(gsuid_core)](https://github.com/Genshin-bots/gsuid_core) 的扩展，需要先安装好 GSCore 才能使用。
