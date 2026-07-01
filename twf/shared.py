@@ -395,6 +395,11 @@ def _load_role_map(path: Path) -> dict[str, str]:
     return result
 
 
+def _load_custom_upload_role_map() -> dict[str, str]:
+    map_path = _custom_upload_role_map_path()
+    return _load_role_map(map_path) if map_path.is_file() else {}
+
+
 def _role_images(role_dir: Path) -> tuple[str, ...]:
     images = [
         path
@@ -462,6 +467,62 @@ def _collect_role_candidates(
     return tuple(sorted(candidates, key=lambda item: item.name))
 
 
+def _load_custom_upload_candidates() -> tuple[RoleCandidate, ...]:
+    role_map = _load_custom_upload_role_map()
+    if not role_map:
+        return ()
+
+    upload_pile_root = _custom_upload_role_pile_root()
+    if not upload_pile_root.is_dir():
+        return ()
+
+    return _collect_role_candidates(
+        role_map,
+        Path('dummy_non_existent_path'),
+        None,
+        upload_pile_root,
+    )
+
+
+def _merge_role_candidates(
+    base: tuple[RoleCandidate, ...],
+    extra: tuple[RoleCandidate, ...],
+) -> tuple[RoleCandidate, ...]:
+    if not extra:
+        return base
+    if not base:
+        return tuple(sorted(extra, key=lambda item: item.name))
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for candidate in (*base, *extra):
+        key = _normalize_role_name(candidate.name)
+        bucket = grouped.setdefault(
+            key,
+            {'name': candidate.name, 'role_ids': [], 'images': []},
+        )
+        for role_id in candidate.role_ids:
+            if role_id not in bucket['role_ids']:
+                bucket['role_ids'].append(role_id)
+        for image in candidate.images:
+            if image not in bucket['images']:
+                bucket['images'].append(image)
+
+    return tuple(
+        sorted(
+            (
+                RoleCandidate(
+                    name=str(bucket['name']),
+                    role_ids=tuple(str(item) for item in bucket['role_ids']),
+                    images=tuple(str(item) for item in bucket['images']),
+                )
+                for bucket in grouped.values()
+                if bucket['role_ids'] and bucket['images']
+            ),
+            key=lambda item: item.name,
+        )
+    )
+
+
 def _load_mode_role_map(mode: str = 'wife') -> dict[str, str]:
     role_map_path = _resolve_role_map_path(mode)
     return _load_role_map(role_map_path) if role_map_path else {}
@@ -490,9 +551,8 @@ def _load_local_candidates(mode: str = 'wife') -> tuple[tuple[RoleCandidate, ...
 
     try:
         role_map = _load_role_map(role_map_path)
-        upload_role_map_path = _custom_upload_role_map_path() if role_mode == 'wife' else None
-        if upload_role_map_path and upload_role_map_path.is_file():
-            role_map.update(_load_role_map(upload_role_map_path))
+        if role_mode == 'wife':
+            role_map.update(_load_custom_upload_role_map())
         candidates = _collect_role_candidates(role_map, pile_root, default_pile_root, upload_pile_root)
     except Exception as exc:
         logger.exception(f'{LOG_PREFIX} 读取本地图片目录失败: {exc}')
@@ -537,6 +597,8 @@ def _husband_available() -> bool:
 
 def _filter_by_mode(candidates: tuple['RoleCandidate', ...], mode: str) -> tuple['RoleCandidate', ...]:
     role_map = _load_mode_role_map(mode)
+    if _role_mode(mode) == 'wife':
+        role_map.update(_load_custom_upload_role_map())
     allowed_ids = set(role_map)
     allowed_names = {_normalize_role_name(name) for name in role_map.values()}
     return tuple(
@@ -673,17 +735,27 @@ async def _load_candidates(mode: str = 'wife') -> tuple[tuple[RoleCandidate, ...
         CANDIDATE_CACHE[cache_key] = (now, candidates)
         return candidates, None
 
+    custom_candidates = await asyncio.to_thread(_load_custom_upload_candidates) if role_mode == 'wife' else ()
     try:
         role_map = _load_mode_role_map(role_mode)
-        if not role_map:
+        if not role_map and not custom_candidates:
             return None, f'没有找到鸣潮{_role_map_title(role_mode)}角色 ID 对照表。'
-        payload = await asyncio.to_thread(_fetch_gallery_payload_sync)
-        candidates = _parse_role_candidates(payload, role_mode, role_map)
+        candidates = ()
+        if role_map:
+            payload = await asyncio.to_thread(_fetch_gallery_payload_sync)
+            candidates = _parse_role_candidates(payload, role_mode, role_map)
+        candidates = _merge_role_candidates(candidates, custom_candidates)
     except RuntimeError as exc:
         logger.warning(f'{LOG_PREFIX} 读取图库接口失败: {exc}')
+        if custom_candidates:
+            CANDIDATE_CACHE[cache_key] = (now, custom_candidates)
+            return custom_candidates, None
         return None, str(exc)
     except Exception as exc:
         logger.warning(f'{LOG_PREFIX} 读取图库接口异常: {exc}')
+        if custom_candidates:
+            CANDIDATE_CACHE[cache_key] = (now, custom_candidates)
+            return custom_candidates, None
         return None, '读取图库接口失败。'
 
     if not candidates:
