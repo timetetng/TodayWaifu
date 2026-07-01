@@ -28,7 +28,7 @@ from .shared import (
     _user_key,
     _wife_state,
     logger,
-    sv,
+    gift_sv,
 )
 
 
@@ -174,21 +174,21 @@ async def _reject_gift_wife(bot: Bot, ev: Event) -> None:
     await _send_prefixed(bot, '已拒绝对方的送老婆请求。')
 
 
-@sv.on_prefix(('送老婆', '送今日老婆'), block=True)
+@gift_sv.on_prefix(('送老婆', '送今日老婆'), block=True)
 async def gift_wife(bot: Bot, ev: Event):
     await _send_gift_wife(bot, ev)
 
 
-@sv.on_fullmatch(('送老婆', '送今日老婆'), block=True)
+@gift_sv.on_fullmatch(('送老婆', '送今日老婆'), block=True)
 async def gift_wife_at(bot: Bot, ev: Event):
     await _send_gift_wife(bot, ev)
 
 
-@sv.on_fullmatch('同意送老婆', block=True)
+@gift_sv.on_fullmatch('同意送老婆', block=True)
 async def gift_wife_accept(bot: Bot, ev: Event):
     await _accept_gift_wife(bot, ev)
 
 
-@sv.on_fullmatch('拒绝送老婆', block=True)
+@gift_sv.on_fullmatch('拒绝送老婆', block=True)
 async def gift_wife_reject(bot: Bot, ev: Event):
     await _reject_gift_wife(bot, ev)

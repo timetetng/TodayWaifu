@@ -402,7 +402,7 @@ async def _send_wife_list(bot: Bot, ev: Event, mode: str = 'wife'):
     await _send_prefixed(bot,_wife_list_text_from_items(title_text, items))
 
 
-@sv.on_prefix(('今日老婆', '娶婆娘', 'jrlp', 'qlp'), block=True)
+@daily_wife_sv.on_prefix(('今日老婆', '娶婆娘', 'jrlp', 'qlp'), block=True)
 async def daily_wife_prefix(bot: Bot, ev: Event):
     specified_name = str(ev.text or '').strip()
     if specified_name == '列表':
@@ -410,27 +410,27 @@ async def daily_wife_prefix(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='wife', specified_name=specified_name)
 
 
-@sv.on_fullmatch(('今日老婆', '娶婆娘', 'jrlp', 'qlp'), block=True)
+@daily_wife_sv.on_fullmatch(('今日老婆', '娶婆娘', 'jrlp', 'qlp'), block=True)
 async def daily_wife_full(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='wife', specified_name='')
 
 
-@sv.on_fullmatch('老婆列表', block=True)
+@wife_list_sv.on_fullmatch('老婆列表', block=True)
 async def daily_wife_list(bot: Bot, ev: Event):
     await _send_wife_list(bot, ev)
 
 
-@upload_sv.on_prefix(('分配老婆', '分配今日老婆'), block=True)
+@assign_wife_sv.on_prefix(('分配老婆', '分配今日老婆'), block=True)
 async def assign_wife(bot: Bot, ev: Event):
     await _send_assign_wife(bot, ev)
 
 
-@upload_sv.on_fullmatch(('分配老婆', '分配今日老婆'), block=True)
+@assign_wife_sv.on_fullmatch(('分配老婆', '分配今日老婆'), block=True)
 async def assign_wife_usage(bot: Bot, ev: Event):
     await _send_assign_wife(bot, ev)
 
 
-@sv.on_prefix('今日老公', block=True)
+@daily_husband_sv.on_prefix('今日老公', block=True)
 async def daily_husband_prefix(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())
@@ -440,20 +440,20 @@ async def daily_husband_prefix(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='husband', specified_name=specified_name)
 
 
-@sv.on_fullmatch('今日老公', block=True)
+@daily_husband_sv.on_fullmatch('今日老公', block=True)
 async def daily_husband_full(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())
     await _send_daily_wife(bot, ev, mode='husband', specified_name='')
 
 
-@sv.on_fullmatch('老公列表', block=True)
+@husband_list_sv.on_fullmatch('老公列表', block=True)
 async def daily_husband_list(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())
     await _send_wife_list(bot, ev, mode='husband')
 
 
-@sv.on_fullmatch(('娶群友', '取群友'), block=True)
+@marry_member_sv.on_fullmatch(('娶群友', '取群友'), block=True)
 async def group_member_wife(bot: Bot, ev: Event):
     await _send_group_member_wife(bot, ev)

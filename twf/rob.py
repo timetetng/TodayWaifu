@@ -26,7 +26,7 @@ from .shared import (
     _user_key,
     _wife_state,
     logger,
-    sv,
+    rob_sv,
 )
 
 
@@ -100,11 +100,11 @@ async def _send_rob_wife(bot: Bot, ev: Event) -> None:
     await _send_role_image(bot, role, target_record.image, _build_rob_success_text(role, target_user_id), robber_id, ev.group_id is not None)
 
 
-@sv.on_prefix(('抢老婆', '抢今日老婆', '抢婆娘'), block=True)
+@rob_sv.on_prefix(('抢老婆', '抢今日老婆', '抢婆娘'), block=True)
 async def rob_wife(bot: Bot, ev: Event):
     await _send_rob_wife(bot, ev)
 
 
-@sv.on_fullmatch(('抢老婆', '抢今日老婆', '抢婆娘'), block=True)
+@rob_sv.on_fullmatch(('抢老婆', '抢今日老婆', '抢婆娘'), block=True)
 async def rob_wife_at(bot: Bot, ev: Event):
     await _send_rob_wife(bot, ev)

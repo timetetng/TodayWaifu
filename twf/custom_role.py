@@ -426,37 +426,37 @@ async def _send_delete_custom_wife_image(bot: Bot, ev: Event):
     await _send_prefixed(bot,f'已删除【{role_name}】老婆图片：{hash_id}')
 
 
-@upload_sv.on_prefix('老婆创建', block=True)
+@custom_role_sv.on_prefix('老婆创建', block=True)
 async def custom_wife_create(bot: Bot, ev: Event):
     await _send_create_custom_wife_role(bot, ev)
 
 
-@upload_sv.on_prefix('老婆上传图片', block=True)
+@custom_role_sv.on_prefix('老婆上传图片', block=True)
 async def custom_wife_upload(bot: Bot, ev: Event):
     await _send_upload_custom_wife_images(bot, ev)
 
 
-@upload_sv.on_prefix(('老婆图片列表', '老婆图片'), block=True)
+@custom_role_sv.on_prefix(('老婆图片列表', '老婆图片'), block=True)
 async def custom_wife_image_list(bot: Bot, ev: Event):
     await _send_custom_wife_image_list(bot, ev)
 
 
-@upload_sv.on_prefix(('老婆删除图片', '老婆删图片'), block=True)
+@custom_role_sv.on_prefix(('老婆删除图片', '老婆删图片'), block=True)
 async def custom_wife_delete_image(bot: Bot, ev: Event):
     await _send_delete_custom_wife_image(bot, ev)
 
 
-@upload_sv.on_fullmatch('老婆删除确认', block=True)
+@custom_role_sv.on_fullmatch('老婆删除确认', block=True)
 async def custom_wife_confirm_delete(bot: Bot, ev: Event):
     await _send_confirm_delete_custom_wife_role(bot, ev)
 
 
-@upload_sv.on_fullmatch('老婆删除取消', block=True)
+@custom_role_sv.on_fullmatch('老婆删除取消', block=True)
 async def custom_wife_cancel_delete(bot: Bot, ev: Event):
     await _send_cancel_delete_custom_wife_role(bot, ev)
 
 
-@upload_sv.on_regex(r'^老婆删除(?!图片|确认|取消)(?P<role>.+)$', block=True)
+@custom_role_sv.on_regex(r'^老婆删除(?!图片|确认|取消)(?P<role>.+)$', block=True)
 async def custom_wife_delete_role(bot: Bot, ev: Event):
     await _send_request_delete_custom_wife_role(bot, ev)
 

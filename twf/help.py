@@ -20,7 +20,7 @@ def _load_help_data():
         return json.load(f)
 
 
-@sv.on_fullmatch('今日老婆帮助', block=True)
+@help_sv.on_fullmatch('今日老婆帮助', block=True)
 async def daily_wife_help(bot: Bot, ev: Event):
     if not HELP_ICON_PATH.is_file():
         logger.warning(f'{LOG_PREFIX} 插件图标不存在: {HELP_ICON_PATH}')

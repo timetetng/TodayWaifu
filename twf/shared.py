@@ -38,8 +38,19 @@ Plugins(
     allow_empty_prefix=True,
 )
 
-sv = SV('鸣潮今日老婆')
-upload_sv = SV('鸣潮今日老婆上传', pm=1)
+# 控制台 SV 服务拆分：不要把所有功能塞进同一个 SV，便于单独开关。
+daily_wife_sv = SV('今日老婆-每日抽取')
+wife_list_sv = SV('今日老婆-老婆列表')
+daily_husband_sv = SV('今日老婆-今日老公')
+husband_list_sv = SV('今日老婆-老公列表')
+marry_member_sv = SV('今日老婆-娶群友')
+rob_sv = SV('今日老婆-抢老婆')
+gift_sv = SV('今日老婆-送老婆')
+custom_role_sv = SV('今日老婆-自定义老婆', pm=1)
+assign_wife_sv = SV('今日老婆-主人分配', pm=1)
+loli_sv = SV('今日老婆-今日萝莉')
+loli_manage_sv = SV('今日老婆-萝莉图库管理', pm=1)
+help_sv = SV('今日老婆-帮助')
 BASE_DIR = Path(__file__).parent.parent
 WIFE_ROLE_MAP_PATH = BASE_DIR / 'wife_role_id_map.txt'
 HUSBAND_ROLE_MAP_PATH = BASE_DIR / 'husband_role_id_map.txt'
@@ -104,8 +115,11 @@ __all__ = [
     '_valid_display_name', '_valid_member_text', '_wife_data_path', '_wife_origin',
     '_wife_state', '_with_loli_reply_prefix', '_writable_role_map_path', '_writable_role_pile_root',
     'asyncio', 'base64', 'binascii', 'core_config', 'date', 'get_res_path',
-    'hashlib', 'json', 'logger', 'random', 're', 'register_help', 'shutil', 'sv', 'time',
-    'upload_sv', 'urlencode', 'urlopen', 'urlparse',
+    'assign_wife_sv', 'custom_role_sv', 'daily_husband_sv', 'daily_wife_sv',
+    'gift_sv', 'help_sv', 'husband_list_sv', 'loli_manage_sv', 'loli_sv',
+    'marry_member_sv', 'rob_sv', 'wife_list_sv',
+    'hashlib', 'json', 'logger', 'random', 're', 'register_help', 'shutil', 'time',
+    'urlencode', 'urlopen', 'urlparse',
 ]
 
 
