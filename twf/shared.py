@@ -39,18 +39,19 @@ Plugins(
 )
 
 # 控制台 SV 服务拆分：不要把所有功能塞进同一个 SV，便于单独开关。
-daily_wife_sv = SV('今日老婆-每日抽取')
-wife_list_sv = SV('今日老婆-老婆列表')
-daily_husband_sv = SV('今日老婆-今日老公')
-husband_list_sv = SV('今日老婆-老公列表')
-marry_member_sv = SV('今日老婆-娶群友')
-rob_sv = SV('今日老婆-抢老婆')
-gift_sv = SV('今日老婆-送老婆')
-custom_role_sv = SV('今日老婆-自定义老婆', pm=1)
-assign_wife_sv = SV('今日老婆-主人分配', pm=1)
-loli_sv = SV('今日老婆-今日萝莉')
-loli_manage_sv = SV('今日老婆-萝莉图库管理', pm=1)
-help_sv = SV('今日老婆-帮助')
+# priority 数字越小越先执行；短前缀命令放到低优先级，避免抢到长命令。
+help_sv = SV('今日老婆-帮助', priority=1)
+custom_role_sv = SV('今日老婆-自定义老婆', pm=1, priority=2)
+assign_wife_sv = SV('今日老婆-主人分配', pm=1, priority=2)
+loli_manage_sv = SV('今日老婆-萝莉图库管理', pm=1, priority=2)
+wife_list_sv = SV('今日老婆-老婆列表', priority=3)
+husband_list_sv = SV('今日老婆-老公列表', priority=3)
+marry_member_sv = SV('今日老婆-娶群友', priority=3)
+rob_sv = SV('今日老婆-抢老婆', priority=3)
+gift_sv = SV('今日老婆-送老婆', priority=3)
+loli_sv = SV('今日老婆-今日萝莉', priority=3)
+daily_wife_sv = SV('今日老婆-每日抽取', priority=10)
+daily_husband_sv = SV('今日老婆-今日老公', priority=10)
 BASE_DIR = Path(__file__).parent.parent
 WIFE_ROLE_MAP_PATH = BASE_DIR / 'wife_role_id_map.txt'
 HUSBAND_ROLE_MAP_PATH = BASE_DIR / 'husband_role_id_map.txt'
