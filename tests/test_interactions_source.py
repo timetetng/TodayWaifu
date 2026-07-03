@@ -7,6 +7,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InteractionConfigSourceTests(unittest.TestCase):
+    def test_help_appearance_config_page_exists(self) -> None:
+        config_source = (ROOT / 'config_default.py').read_text(encoding='utf-8')
+        daily_config_source = (ROOT / 'daily_wife_config.py').read_text(encoding='utf-8')
+        help_source = (ROOT / 'twf' / 'help.py').read_text(encoding='utf-8')
+        for key in (
+            'DailyWifeHelpBannerBgUpload',
+            'DailyWifeHelpBgUpload',
+            'DailyWifeHelpIconUpload',
+            'DailyWifeHelpColumn',
+        ):
+            self.assertIn(key, config_source)
+            self.assertIn(key, help_source)
+        self.assertIn("DailyWifeShowConfig = StringConfig(", daily_config_source)
+        self.assertIn("'今日老婆外观配置'", daily_config_source)
+        self.assertIn('column=column', help_source)
+
     def test_new_interaction_configs_exist(self) -> None:
         source = (ROOT / 'config_default.py').read_text(encoding='utf-8')
         tree = ast.parse(source)

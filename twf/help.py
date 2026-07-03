@@ -6,6 +6,7 @@ from pathlib import Path
 
 from gsuid_core.help.draw_new_plugin_help import get_new_help
 
+from ..daily_wife_config import DailyWifeShowConfig
 from .shared import *  # noqa: F403
 
 _HELP_JSON_PATH = BASE_DIR / 'help.json'
@@ -20,35 +21,64 @@ def _load_help_data():
         return json.load(f)
 
 
+def _show_config_path(key: str) -> Path | None:
+    value = str(DailyWifeShowConfig.get_config(key).data or '').strip().strip('"')
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    return path if path.is_file() else None
+
+
+def _help_column() -> int:
+    value = DailyWifeShowConfig.get_config('DailyWifeHelpColumn').data
+    try:
+        column = int(value)
+    except (TypeError, ValueError):
+        column = 3
+    return max(1, min(10, column))
+
+
 @help_sv.on_fullmatch('今日老婆帮助', block=True)
 async def daily_wife_help(bot: Bot, ev: Event):
-    if not HELP_ICON_PATH.is_file():
-        logger.warning(f'{LOG_PREFIX} 插件图标不存在: {HELP_ICON_PATH}')
+    plugin_icon_path = _show_config_path('DailyWifeHelpIconUpload') or HELP_ICON_PATH
+    if not plugin_icon_path.is_file():
+        logger.warning(f'{LOG_PREFIX} 插件图标不存在: {plugin_icon_path}')
         return await bot.send('帮助图片生成失败，ICON.png 缺失。')
 
-    with Image.open(HELP_ICON_PATH) as _icon:
+    with Image.open(plugin_icon_path) as _icon:
         icon = _icon.convert('RGBA')
 
     banner_bg = None
-    if _BANNER_BG_PATH.is_file():
-        with Image.open(_BANNER_BG_PATH) as _bb:
+    custom_banner_bg_path = _show_config_path('DailyWifeHelpBannerBgUpload')
+    banner_bg_path = custom_banner_bg_path or _BANNER_BG_PATH
+    if banner_bg_path.is_file():
+        with Image.open(banner_bg_path) as _bb:
             _bb = _bb.convert('RGBA')
-            bw, bh = _bb.size
-            # 只保留上面 40%，大切底部
-            banner_bg = _bb.crop((0, 0, bw, int(bh * 0.40)))
+            if custom_banner_bg_path is None:
+                bw, bh = _bb.size
+                # 只保留上面 40%，大切底部
+                banner_bg = _bb.crop((0, 0, bw, int(bh * 0.40)))
+            else:
+                banner_bg = _bb
 
     help_bg = None
-    if _BG_PATH.is_file():
-        with Image.open(_BG_PATH) as _bg:
+    custom_help_bg_path = _show_config_path('DailyWifeHelpBgUpload')
+    help_bg_path = custom_help_bg_path or _BG_PATH
+    if help_bg_path.is_file():
+        with Image.open(help_bg_path) as _bg:
             _bg = _bg.convert('RGBA')
-            bgw, bgh = _bg.size
-            # 顶部填充暗色，把人脸推到横幅以下
-            pad_h = 700
-            _padded = Image.new('RGBA', (bgw, bgh + pad_h), (15, 15, 25, 255))
-            _padded.paste(_bg, (0, pad_h))
-            help_bg = _padded
+            if custom_help_bg_path is None:
+                bgw, bgh = _bg.size
+                # 顶部填充暗色，把人脸推到横幅以下
+                pad_h = 700
+                _padded = Image.new('RGBA', (bgw, bgh + pad_h), (15, 15, 25, 255))
+                _padded.paste(_bg, (0, pad_h))
+                help_bg = _padded
+            else:
+                help_bg = _bg
 
     data = _load_help_data()
+    column = _help_column()
     extra: dict = {}
     if banner_bg is not None:
         extra['banner_bg'] = banner_bg
@@ -65,6 +95,7 @@ async def daily_wife_help(bot: Bot, ev: Event):
         help_mode='dark',
         banner_sub_text='找到你今天的她',
         enable_cache=False,
+        column=column,
         pm=ev.user_pm,
         **extra,
     )

@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from typing import Dict
 
+from gsuid_core.data_store import get_res_path
 from gsuid_core.utils.plugins_config.models import (
     GSC,
     GsBoolConfig,
     GsDivider,
+    GsImageConfig,
+    GsIntConfig,
     GsStrConfig,
 )
+
+SHOW_CONFIG_PATH = get_res_path(['TodayWaifu', 'show'])
 
 CONFIG_DEFAULT: Dict[str, GSC] = {
     '_DividerImageSource': GsDivider('图片数据源', ''),
@@ -198,5 +203,38 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         '送萝莉成功文案',
         '可用变量：{name} 名称，{role_id} 图片标识，{target} 接收用户 ID',
         '你把今天的萝莉送给了对方！',
+    ),
+}
+
+APPEARANCE_CONFIG_DEFAULT: Dict[str, GSC] = {
+    'DailyWifeHelpBannerBgUpload': GsImageConfig(
+        '帮助横幅图',
+        '自定义「今日老婆帮助」顶部横幅图，留空或文件不存在时使用插件默认横幅',
+        str(SHOW_CONFIG_PATH / 'help_banner.png'),
+        str(SHOW_CONFIG_PATH),
+        'help_banner',
+        'png',
+    ),
+    'DailyWifeHelpBgUpload': GsImageConfig(
+        '帮助背景图',
+        '自定义「今日老婆帮助」整体背景图，留空或文件不存在时使用插件默认背景',
+        str(SHOW_CONFIG_PATH / 'help_bg.png'),
+        str(SHOW_CONFIG_PATH),
+        'help_bg',
+        'png',
+    ),
+    'DailyWifeHelpIconUpload': GsImageConfig(
+        '帮助头像',
+        '自定义「今日老婆帮助」左上角头像，建议使用方形图片',
+        str(SHOW_CONFIG_PATH / 'help_icon.png'),
+        str(SHOW_CONFIG_PATH),
+        'help_icon',
+        'png',
+    ),
+    'DailyWifeHelpColumn': GsIntConfig(
+        '帮助展示行数',
+        '控制帮助图每组展示数量，默认 3，可按需要改成 4、5 等',
+        3,
+        10,
     ),
 }
