@@ -158,6 +158,8 @@ async def _send_loli_image(bot: Bot, ev: Event) -> None:
         if state == 'lost_gifted':
             gifted_to_name = current.get('gifted_to_name') or current.get('gifted_to')
             return await _send_loli_text(bot, f'你的萝莉已经送给{gifted_to_name}了，今天就先忍忍吧~')
+        if state == 'divorced':
+            return await _send_loli_text(bot, '你今天已经和萝莉离婚了，明天再来吧~')
         record = _record_from_dict(current)
         if record is not None:
             return await _send_loli_record(bot, record)

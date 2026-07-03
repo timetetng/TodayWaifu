@@ -49,6 +49,7 @@ husband_list_sv = SV('今日老婆-老公列表', priority=3)
 marry_member_sv = SV('今日老婆-娶群友', priority=3)
 rob_sv = SV('今日老婆-抢老婆', priority=3)
 gift_sv = SV('今日老婆-送老婆', priority=3)
+divorce_sv = SV('今日老婆-离婚', priority=3)
 loli_sv = SV('今日老婆-今日萝莉', priority=3)
 daily_wife_sv = SV('今日老婆-每日抽取', priority=10)
 daily_husband_sv = SV('今日老婆-今日老公', priority=10)
@@ -118,7 +119,7 @@ __all__ = [
     '_wife_state', '_with_loli_reply_prefix', '_writable_role_map_path', '_writable_role_pile_root',
     'asyncio', 'base64', 'binascii', 'core_config', 'date', 'get_res_path',
     'assign_wife_sv', 'custom_role_sv', 'daily_husband_sv', 'daily_wife_sv',
-    'gift_sv', 'help_sv', 'husband_list_sv', 'loli_manage_sv', 'loli_sv',
+    'divorce_sv', 'gift_sv', 'help_sv', 'husband_list_sv', 'loli_manage_sv', 'loli_sv',
     'marry_member_sv', 'rob_sv', 'wife_list_sv',
     'hashlib', 'json', 'logger', 'random', 're', 'register_help', 'shutil', 'time',
     'urlencode', 'urlopen', 'urlparse',
@@ -1176,16 +1177,18 @@ def _record_from_dict(data: dict[str, Any]) -> WifeRecord | None:
 
 # —— 老婆状态单一判定（四个流程统一调用，避免各处口径不一致）——
 # 沿用现有标记位，不新增持久化字段、不迁移历史数据：
-#   stolen_by / gifted_to ：记录已离手（被抢走 / 送出去），原主变“空”
+#   stolen_by / gifted_to / divorced ：记录已离手（被抢走 / 送出去 / 主动离婚），原主变“空”
 #   stolen_from / gifted_from ：记录来源（抢来的 / 别人送的），即“二手”
 def _wife_state(raw: Any) -> str:
-    """返回老婆记录的持有状态：owned 正常持有 / lost_stolen 被抢走 / lost_gifted 送出去。"""
+    """返回记录持有状态：owned 正常持有 / lost_stolen 被抢走 / lost_gifted 送出去 / divorced 主动离婚。"""
     if not isinstance(raw, dict):
         return 'owned'
     if raw.get('stolen_by'):
         return 'lost_stolen'
     if raw.get('gifted_to'):
         return 'lost_gifted'
+    if raw.get('divorced'):
+        return 'divorced'
     return 'owned'
 
 

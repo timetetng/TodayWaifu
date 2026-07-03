@@ -1,0 +1,66 @@
+"""TodayWaifu divorce command."""
+from __future__ import annotations
+
+from .shared import (
+    Bot,
+    Event,
+    LOG_PREFIX,
+    _daily_bucket_name,
+    _daily_item_title,
+    _get_today_context,
+    _has_active_wife,
+    _load_wife_data,
+    _save_wife_data,
+    _send_loli_text,
+    _send_prefixed,
+    _user_key,
+    divorce_sv,
+    logger,
+    time,
+)
+
+
+def _divorce_reply_sender(kind: str):
+    return _send_loli_text if kind == 'loli' else _send_prefixed
+
+
+async def _send_divorce(bot: Bot, ev: Event, kind: str = 'wife') -> None:
+    title = _daily_item_title(kind)
+    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 在群 {ev.group_id or "direct"} 发起离婚: {title}')
+
+    data = _load_wife_data()
+    context = _get_today_context(data, ev)
+    bucket = _daily_bucket_name(kind)
+    user_key = _user_key(ev)
+    current = context[bucket].get(user_key)
+    send_text = _divorce_reply_sender(kind)
+
+    if not _has_active_wife(current):
+        return await send_text(bot, f'你今天没有可以离婚的{title}。')
+
+    if not isinstance(current, dict):
+        return await send_text(bot, f'你今天没有可以离婚的{title}。')
+
+    item_name = str(current.get('name') or title)
+    current['divorced'] = True
+    current['divorced_at'] = int(time.time())
+    _save_wife_data(data)
+
+    if kind == 'loli':
+        return await send_text(bot, '你已经和今天的萝莉离婚了。')
+    await send_text(bot, f'你已经和今天的{title}{item_name}离婚了。')
+
+
+@divorce_sv.on_fullmatch(('离婚', '离婚老婆', '今日老婆离婚', '和老婆离婚'), block=True)
+async def divorce_wife(bot: Bot, ev: Event):
+    await _send_divorce(bot, ev, 'wife')
+
+
+@divorce_sv.on_fullmatch(('离婚老公', '今日老公离婚', '和老公离婚'), block=True)
+async def divorce_husband(bot: Bot, ev: Event):
+    await _send_divorce(bot, ev, 'husband')
+
+
+@divorce_sv.on_fullmatch(('离婚萝莉', '今日萝莉离婚', '和萝莉离婚'), block=True)
+async def divorce_loli(bot: Bot, ev: Event):
+    await _send_divorce(bot, ev, 'loli')

@@ -104,6 +104,22 @@
         "need_admin": false
       },
       {
+        "name": "离婚",
+        "desc": "主动放弃今天的老婆，不触发补偿",
+        "eg": "离婚",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "离婚老公",
+        "desc": "主动放弃今天的老公",
+        "eg": "离婚老公",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
         "name": "娶群友",
         "desc": "从群成员随机娶群友（控制台开启后生效）",
         "eg": "娶群友",
@@ -152,6 +168,14 @@
         "name": "拒绝送萝莉",
         "desc": "拒绝对方的送萝莉请求",
         "eg": "拒绝送萝莉",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "离婚萝莉",
+        "desc": "主动放弃今天的萝莉",
+        "eg": "离婚萝莉",
         "need_ck": false,
         "need_sk": false,
         "need_admin": false

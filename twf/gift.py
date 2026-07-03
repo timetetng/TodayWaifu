@@ -150,6 +150,8 @@ async def _send_gift_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
         return await _send_prefixed(bot, f'你的{title}已经被抢走了，没有{title}可以送了~')
     if state == 'lost_gifted':
         return await _send_prefixed(bot, f'你今天已经把{title}送出去了~')
+    if state == 'divorced':
+        return await _send_prefixed(bot, f'你今天已经和{title}离婚了，没有{title}可以送了~')
     if _is_secondhand_wife(giver_data):
         return await _send_prefixed(bot, f'这个{title}是抢来或别人送的，不能再送出去哦~')
 
@@ -201,6 +203,8 @@ async def _accept_gift_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
         return await _send_prefixed(bot, f'对方的{title}已经被抢走了，赠送已失效~')
     if state == 'lost_gifted':
         return await _send_prefixed(bot, f'对方已经把{title}送给别人了，赠送已失效~')
+    if state == 'divorced':
+        return await _send_prefixed(bot, f'对方已经和{title}离婚了，赠送已失效~')
     if _is_secondhand_wife(giver_data):
         return await _send_prefixed(bot, f'这个{title}是抢来或别人送的，不能再送出去，赠送已失效~')
 

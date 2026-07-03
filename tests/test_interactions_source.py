@@ -54,6 +54,24 @@ class InteractionSourceTests(unittest.TestCase):
         gift_source = (ROOT / 'twf' / 'gift.py').read_text(encoding='utf-8')
         self.assertIn("item_text = title if kind == 'loli' else f'{title}{role.name}'", gift_source)
 
+    def test_divorce_module_registers_independent_commands(self) -> None:
+        init_source = (ROOT / '__init__.py').read_text(encoding='utf-8')
+        shared_source = (ROOT / 'twf' / 'shared.py').read_text(encoding='utf-8')
+        divorce_source = (ROOT / 'twf' / 'divorce.py').read_text(encoding='utf-8')
+        self.assertIn('from .twf import divorce', init_source)
+        self.assertIn("divorce_sv = SV('今日老婆-离婚'", shared_source)
+        for word in ('离婚', '离婚老公', '离婚萝莉'):
+            self.assertIn(word, divorce_source)
+
+    def test_divorce_uses_separate_state_not_stolen_or_gifted(self) -> None:
+        shared_source = (ROOT / 'twf' / 'shared.py').read_text(encoding='utf-8')
+        divorce_source = (ROOT / 'twf' / 'divorce.py').read_text(encoding='utf-8')
+        self.assertIn("raw.get('divorced')", shared_source)
+        self.assertIn("return 'divorced'", shared_source)
+        self.assertIn("current['divorced'] = True", divorce_source)
+        self.assertNotIn("current['stolen_by']", divorce_source)
+        self.assertNotIn("current['gifted_to']", divorce_source)
+
 
 if __name__ == '__main__':
     unittest.main()

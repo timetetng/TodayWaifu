@@ -76,6 +76,9 @@ async def _ensure_daily_wife_record(
     context = _get_today_context(data, ev)
     current = context[bucket].get(key)
     if isinstance(current, dict):
+        if _wife_state(current) != 'owned':
+            logger.debug(f'{LOG_PREFIX} 命中已离手的 {mode} 记录，拒绝复用')
+            return None
         record = _record_from_dict(current)
         if record is not None:
             logger.debug(f'{LOG_PREFIX} 命中已有的 {mode} 记录: {record.name}')
@@ -105,6 +108,9 @@ async def _ensure_daily_wife_record(
     context = _get_today_context(data, ev)
     existing = context[bucket].get(key)
     if isinstance(existing, dict):
+        if _wife_state(existing) != 'owned':
+            logger.debug(f'{LOG_PREFIX} 写入前发现已离手的 {mode} 记录，拒绝覆盖')
+            return None
         existing_record = _record_from_dict(existing)
         if existing_record is not None:
             logger.debug(f'{LOG_PREFIX} 写入前发现已有 {mode} 记录，直接复用: {existing_record.name}')
@@ -160,6 +166,8 @@ async def _wife_list_items(ev: Event, mode: str = 'wife') -> tuple[str, list[tup
             wife_name = '被抢走了~'
         elif state == 'lost_gifted':
             wife_name = '送出去了~'
+        elif state == 'divorced':
+            wife_name = '离婚了~'
         else:
             wife_name = record.name
 
@@ -191,7 +199,11 @@ async def _wife_list_items(ev: Event, mode: str = 'wife') -> tuple[str, list[tup
                     order = int(updated_at)
                 except (TypeError, ValueError):
                     order = 0
-                items.append((order, display_name, record.name + '(补)'))
+                state = _wife_state(raw_record)
+                if state == 'divorced':
+                    items.append((order, display_name, '离婚了~'))
+                else:
+                    items.append((order, display_name, record.name + '(补)'))
 
     if not items:
         return f'今天本群还没有可用的{title}记录。', []
@@ -240,15 +252,16 @@ async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife', specified_na
     is_debug = _cfg_bool('DailyWifeDebugMode', False)
     is_debug_active = is_debug and is_master
 
-    if mode == 'wife' and not is_debug_active:
+    if not is_debug_active:
         data = _load_wife_data()
         context = _get_today_context(data, ev)
         user_key = _user_key(ev)
-        current_record = context['wives'].get(user_key)
+        bucket = _daily_bucket_name(mode)
+        current_record = context[bucket].get(user_key)
 
-        # 离手即结算：被抢走后可补偿重抽一次（safe_wife），送出去仍锁死
+        # 离手即结算：老婆被抢走后可补偿重抽一次（safe_wife），送出/离婚仍锁死；老公离手后也锁死。
         state = _wife_state(current_record)
-        if state == 'lost_stolen':
+        if state == 'lost_stolen' and mode == 'wife':
             # 已有补偿老婆的直接展示
             safe_record = context['safe_wives'].get(user_key)
             if isinstance(safe_record, dict):
@@ -279,11 +292,18 @@ async def _send_daily_wife(bot: Bot, ev: Event, mode: str = 'wife', specified_na
                 user_id=ev.user_id,
                 is_group=ev.group_id is not None,
             )
+        if state == 'lost_stolen':
+            item_name = current_record.get('name', title) if isinstance(current_record, dict) else title
+            stolen_by_name = current_record.get('stolen_by_name') or current_record.get('stolen_by')
+            return await _send_prefixed(bot, f'你的{item_name}已经被{stolen_by_name}抢走了，今天就先忍忍吧~')
         if state == 'lost_gifted':
-            wife_name = current_record.get('name', '老婆')
+            wife_name = current_record.get('name', title)
             gifted_to_name = current_record.get('gifted_to_name') or current_record.get('gifted_to')
-            logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 的老婆已送出，拒绝分配新角色')
+            logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 的{title}已送出，拒绝分配新角色')
             return await _send_prefixed(bot,f'你的{wife_name}已经送给{gifted_to_name}了，今天就先忍忍吧~')
+        if state == 'divorced':
+            item_name = current_record.get('name', title) if isinstance(current_record, dict) else title
+            return await _send_prefixed(bot, f'你今天已经和{item_name}离婚了，明天再来吧~')
 
     record: WifeRecord | None = None
 
