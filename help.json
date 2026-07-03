@@ -72,6 +72,38 @@
         "need_admin": false
       },
       {
+        "name": "抢老公",
+        "desc": "有概率抢走对方今日老公",
+        "eg": "抢老公 @对方",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "送老公",
+        "desc": "把今日老公送给对方",
+        "eg": "送老公 @对方",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "同意送老公",
+        "desc": "同意接受对方送来的老公",
+        "eg": "同意送老公",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "拒绝送老公",
+        "desc": "拒绝对方的送老公请求",
+        "eg": "拒绝送老公",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
         "name": "娶群友",
         "desc": "从群成员随机娶群友（控制台开启后生效）",
         "eg": "娶群友",
@@ -86,8 +118,40 @@
     "data": [
       {
         "name": "今日萝莉",
-        "desc": "获取随机萝莉图",
+        "desc": "获取今日萝莉图，当天固定后可被抢/送",
         "eg": "今日萝莉",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "抢萝莉",
+        "desc": "有概率抢走对方今日萝莉",
+        "eg": "抢萝莉 @对方",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "送萝莉",
+        "desc": "把今日萝莉送给对方",
+        "eg": "送萝莉 @对方",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "同意送萝莉",
+        "desc": "同意接受对方送来的萝莉",
+        "eg": "同意送萝莉",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "拒绝送萝莉",
+        "desc": "拒绝对方的送萝莉请求",
+        "eg": "拒绝送萝莉",
         "need_ck": false,
         "need_sk": false,
         "need_admin": false

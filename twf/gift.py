@@ -4,20 +4,24 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from gsuid_core.segment import MessageSegment
-
 from .shared import (
     Bot,
     Event,
     LOG_PREFIX,
+    MessageSegment,
+    Path,
     RoleCandidate,
     _cfg,
     _cfg_bool,
     _context_key,
+    _daily_bucket_name,
+    _daily_item_title,
     _get_event_target_user_id,
-    _get_existing_daily_wife_record,
+    _get_existing_daily_record,
     _get_today_context,
     _has_active_wife,
+    _husband_available,
+    _husband_unavailable_message,
     _is_secondhand_wife,
     _load_wife_data,
     _record_to_dict,
@@ -27,6 +31,7 @@ from .shared import (
     _user_display_name,
     _user_key,
     _wife_state,
+    _with_loli_reply_prefix,
     logger,
     gift_sv,
 )
@@ -36,8 +41,24 @@ GIFT_CONFIRM_TIMEOUT_SECONDS = 60
 _GIFT_PENDING: dict[str, dict[str, Any]] = {}
 
 
-def _build_gift_success_text(role: RoleCandidate, target_user_id: str) -> str:
-    template = str(_cfg('DailyWifeGiftSuccessTemplate') or '你把今天的老婆{name}送给了对方！')
+def _gift_enabled(kind: str) -> bool:
+    if kind == 'husband':
+        return _cfg_bool('DailyHusbandGiftEnabled', True)
+    if kind == 'loli':
+        return _cfg_bool('DailyLoliGiftEnabled', True)
+    return _cfg_bool('DailyWifeGiftEnabled', True)
+
+
+def _gift_success_template(kind: str) -> str:
+    if kind == 'husband':
+        return str(_cfg('DailyHusbandGiftSuccessTemplate') or '你把今天的老公{name}送给了对方！')
+    if kind == 'loli':
+        return str(_cfg('DailyLoliGiftSuccessTemplate') or '你把今天的萝莉送给了对方！')
+    return str(_cfg('DailyWifeGiftSuccessTemplate') or '你把今天的老婆{name}送给了对方！')
+
+
+def _build_gift_success_text(role: RoleCandidate, target_user_id: str, kind: str) -> str:
+    template = _gift_success_template(kind)
     return template.format(
         name=role.name,
         role_id='/'.join(role.role_ids),
@@ -45,12 +66,35 @@ def _build_gift_success_text(role: RoleCandidate, target_user_id: str) -> str:
     )
 
 
-def _gift_pending_key(ev: Event, target_user_id: str) -> str:
-    return f'{_context_key(ev)}:{target_user_id}'
+def _gift_pending_key(ev: Event, target_user_id: str, kind: str = 'wife') -> str:
+    return f'{_context_key(ev)}:{kind}:{target_user_id}'
 
 
-def _get_pending_gift(ev: Event, target_user_id: str) -> dict[str, Any] | None:
-    key = _gift_pending_key(ev, target_user_id)
+async def _send_gift_result_image(
+    bot: Bot,
+    role: RoleCandidate,
+    image: str,
+    text: str,
+    user_id: str,
+    is_group: bool,
+    kind: str,
+) -> None:
+    if kind != 'loli':
+        await _send_role_image(bot, role, image, text, user_id, is_group)
+        return
+
+    messages: list[object] = []
+    if is_group and user_id is not None and bool(_cfg('DailyWifeAtUser')):
+        messages.append(MessageSegment.at(user_id))
+        messages.append('\n')
+    messages.append(_with_loli_reply_prefix(text))
+    image_ref = image if image.startswith(('http://', 'https://')) else Path(image)
+    messages.append(MessageSegment.image(image_ref))
+    await bot.send(messages)
+
+
+def _get_pending_gift(ev: Event, target_user_id: str, kind: str = 'wife') -> dict[str, Any] | None:
+    key = _gift_pending_key(ev, target_user_id, kind)
     pending = _GIFT_PENDING.get(key)
     if not isinstance(pending, dict):
         return None
@@ -64,21 +108,25 @@ def _get_pending_gift(ev: Event, target_user_id: str) -> dict[str, Any] | None:
     return pending
 
 
-def _set_pending_gift(ev: Event, target_user_id: str, giver_id: str) -> None:
-    _GIFT_PENDING[_gift_pending_key(ev, target_user_id)] = {
+def _set_pending_gift(ev: Event, target_user_id: str, giver_id: str, kind: str = 'wife') -> None:
+    _GIFT_PENDING[_gift_pending_key(ev, target_user_id, kind)] = {
         'giver_id': giver_id,
+        'kind': kind,
         'created_at': time.time(),
     }
 
 
-def _clear_pending_gift(ev: Event, target_user_id: str) -> None:
-    _GIFT_PENDING.pop(_gift_pending_key(ev, target_user_id), None)
+def _clear_pending_gift(ev: Event, target_user_id: str, kind: str = 'wife') -> None:
+    _GIFT_PENDING.pop(_gift_pending_key(ev, target_user_id, kind), None)
 
 
-async def _send_gift_wife(bot: Bot, ev: Event) -> None:
-    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 在群 {ev.group_id or "direct"} 发起送老婆')
-    if not _cfg_bool('DailyWifeGiftEnabled', True):
-        return await _send_prefixed(bot, '送老婆功能当前已关闭。')
+async def _send_gift_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
+    title = _daily_item_title(kind)
+    logger.info(f'{LOG_PREFIX} 用户 {ev.user_id} 在群 {ev.group_id or "direct"} 发起送{title}')
+    if kind == 'husband' and not _husband_available():
+        return await _send_prefixed(bot, _husband_unavailable_message())
+    if not _gift_enabled(kind):
+        return await _send_prefixed(bot, f'送{title}功能当前已关闭。')
 
     target_user_id = _get_event_target_user_id(ev)
     if not target_user_id:
@@ -86,92 +134,141 @@ async def _send_gift_wife(bot: Bot, ev: Event) -> None:
 
     giver_id = _user_key(ev)
     if target_user_id == giver_id:
-        return await _send_prefixed(bot, '不能把老婆送给自己哦！')
+        return await _send_prefixed(bot, f'不能把{title}送给自己哦！')
 
-    giver_record = _get_existing_daily_wife_record(ev, giver_id)
+    giver_record = _get_existing_daily_record(ev, giver_id, kind)
     if giver_record is None:
-        return await _send_prefixed(bot, '你今天还没有老婆，先去抽一个吧~')
+        return await _send_prefixed(bot, f'你今天还没有{title}，先去抽一个吧~')
 
     data = _load_wife_data()
     context = _get_today_context(data, ev)
-    giver_data = context['wives'].get(giver_id)
+    bucket = _daily_bucket_name(kind)
+    giver_data = context[bucket].get(giver_id)
 
     state = _wife_state(giver_data)
     if state == 'lost_stolen':
-        return await _send_prefixed(bot, '你的老婆已经被抢走了，没有老婆可以送了~')
+        return await _send_prefixed(bot, f'你的{title}已经被抢走了，没有{title}可以送了~')
     if state == 'lost_gifted':
-        return await _send_prefixed(bot, '你今天已经把老婆送出去了~')
+        return await _send_prefixed(bot, f'你今天已经把{title}送出去了~')
     if _is_secondhand_wife(giver_data):
-        return await _send_prefixed(bot, '这个老婆是抢来或别人送的，不能再送出去哦~')
+        return await _send_prefixed(bot, f'这个{title}是抢来或别人送的，不能再送出去哦~')
 
     target_key = _user_key(ev, target_user_id)
-    if _has_active_wife(context['wives'].get(target_key)):
-        return await _send_prefixed(bot, '对方今天已经有老婆了，不需要你送哦~')
+    if _has_active_wife(context[bucket].get(target_key)):
+        return await _send_prefixed(bot, f'对方今天已经有{title}了，不需要你送哦~')
 
-    if _get_pending_gift(ev, target_user_id) is not None:
-        return await _send_prefixed(bot, '对方已经有一个待确认的送老婆请求，请等待处理或超时后再试~')
+    if _get_pending_gift(ev, target_user_id, kind) is not None:
+        return await _send_prefixed(bot, f'对方已经有一个待确认的送{title}请求，请等待处理或超时后再试~')
 
-    _set_pending_gift(ev, target_user_id, giver_id)
+    _set_pending_gift(ev, target_user_id, giver_id, kind)
     giver_name = _user_display_name(ev, giver_id)
     role = giver_record.to_role()
     text = (
-        f'{giver_name} 想把今天的老婆{role.name}送给你！\n'
-        f'请在 {GIFT_CONFIRM_TIMEOUT_SECONDS} 秒内发送「同意送老婆」接受，'
-        f'或发送「拒绝送老婆」拒绝，超时将自动取消。'
+        f'{giver_name} 想把今天的{title}{role.name}送给你！\n'
+        f'请在 {GIFT_CONFIRM_TIMEOUT_SECONDS} 秒内发送「同意送{title}」接受，'
+        f'或发送「拒绝送{title}」拒绝，超时将自动取消。'
     )
     await _send_prefixed(bot, [MessageSegment.at(target_user_id), '\n', text])
 
 
-async def _accept_gift_wife(bot: Bot, ev: Event) -> None:
+async def _accept_gift_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
+    title = _daily_item_title(kind)
     target_user_id = _user_key(ev)
-    pending = _get_pending_gift(ev, target_user_id)
+    pending = _get_pending_gift(ev, target_user_id, kind)
     if pending is None:
-        return await _send_prefixed(bot, '没有待确认的送老婆请求，可能已经超时或被取消了~')
+        return await _send_prefixed(bot, f'没有待确认的送{title}请求，可能已经超时或被取消了~')
 
     giver_id = str(pending['giver_id'])
-    _clear_pending_gift(ev, target_user_id)
+    _clear_pending_gift(ev, target_user_id, kind)
 
-    if not _cfg_bool('DailyWifeGiftEnabled', True):
-        return await _send_prefixed(bot, '送老婆功能已关闭，这次赠送已失效。')
+    if kind == 'husband' and not _husband_available():
+        return await _send_prefixed(bot, _husband_unavailable_message())
+    if not _gift_enabled(kind):
+        return await _send_prefixed(bot, f'送{title}功能已关闭，这次赠送已失效。')
 
-    giver_record = _get_existing_daily_wife_record(ev, giver_id)
+    giver_record = _get_existing_daily_record(ev, giver_id, kind)
     if giver_record is None:
-        return await _send_prefixed(bot, '对方现在已经没有老婆可以送给你了，赠送已失效~')
+        return await _send_prefixed(bot, f'对方现在已经没有{title}可以送给你了，赠送已失效~')
 
     data = _load_wife_data()
     context = _get_today_context(data, ev)
-    giver_data = context['wives'].get(giver_id)
+    bucket = _daily_bucket_name(kind)
+    giver_data = context[bucket].get(giver_id)
 
     state = _wife_state(giver_data)
     if state == 'lost_stolen':
-        return await _send_prefixed(bot, '对方的老婆已经被抢走了，赠送已失效~')
+        return await _send_prefixed(bot, f'对方的{title}已经被抢走了，赠送已失效~')
     if state == 'lost_gifted':
-        return await _send_prefixed(bot, '对方已经把老婆送给别人了，赠送已失效~')
+        return await _send_prefixed(bot, f'对方已经把{title}送给别人了，赠送已失效~')
     if _is_secondhand_wife(giver_data):
-        return await _send_prefixed(bot, '这个老婆是抢来或别人送的，不能再送出去，赠送已失效~')
+        return await _send_prefixed(bot, f'这个{title}是抢来或别人送的，不能再送出去，赠送已失效~')
 
-    if _has_active_wife(context['wives'].get(target_user_id)):
-        return await _send_prefixed(bot, '你现在已经有老婆了，不需要接受赠送啦~')
+    if _has_active_wife(context[bucket].get(target_user_id)):
+        return await _send_prefixed(bot, f'你现在已经有{title}了，不需要接受赠送啦~')
 
-    context['wives'][target_user_id] = _record_to_dict(giver_record, ev, target_user_id)
-    context['wives'][target_user_id]['gifted_from'] = giver_id
+    context[bucket][target_user_id] = _record_to_dict(giver_record, ev, target_user_id)
+    context[bucket][target_user_id]['gifted_from'] = giver_id
 
-    if isinstance(context['wives'].get(giver_id), dict):
-        context['wives'][giver_id]['gifted_to'] = target_user_id
-        context['wives'][giver_id]['gifted_to_name'] = _user_display_name(ev, target_user_id)
+    if isinstance(context[bucket].get(giver_id), dict):
+        context[bucket][giver_id]['gifted_to'] = target_user_id
+        context[bucket][giver_id]['gifted_to_name'] = _user_display_name(ev, target_user_id)
 
     _save_wife_data(data)
 
     role = giver_record.to_role()
-    await _send_role_image(bot, role, giver_record.image, _build_gift_success_text(role, target_user_id), giver_id, ev.group_id is not None)
+    await _send_gift_result_image(
+        bot,
+        role,
+        giver_record.image,
+        _build_gift_success_text(role, target_user_id, kind),
+        giver_id,
+        ev.group_id is not None,
+    )
+
+
+async def _reject_gift_daily(bot: Bot, ev: Event, kind: str = 'wife') -> None:
+    title = _daily_item_title(kind)
+    target_user_id = _user_key(ev)
+    if _get_pending_gift(ev, target_user_id, kind) is None:
+        return await _send_prefixed(bot, f'没有待确认的送{title}请求。')
+    _clear_pending_gift(ev, target_user_id, kind)
+    await _send_prefixed(bot, f'已拒绝对方的送{title}请求。')
+
+
+async def _send_gift_wife(bot: Bot, ev: Event) -> None:
+    await _send_gift_daily(bot, ev, 'wife')
+
+
+async def _accept_gift_wife(bot: Bot, ev: Event) -> None:
+    await _accept_gift_daily(bot, ev, 'wife')
 
 
 async def _reject_gift_wife(bot: Bot, ev: Event) -> None:
-    target_user_id = _user_key(ev)
-    if _get_pending_gift(ev, target_user_id) is None:
-        return await _send_prefixed(bot, '没有待确认的送老婆请求。')
-    _clear_pending_gift(ev, target_user_id)
-    await _send_prefixed(bot, '已拒绝对方的送老婆请求。')
+    await _reject_gift_daily(bot, ev, 'wife')
+
+
+async def _send_gift_husband(bot: Bot, ev: Event) -> None:
+    await _send_gift_daily(bot, ev, 'husband')
+
+
+async def _accept_gift_husband(bot: Bot, ev: Event) -> None:
+    await _accept_gift_daily(bot, ev, 'husband')
+
+
+async def _reject_gift_husband(bot: Bot, ev: Event) -> None:
+    await _reject_gift_daily(bot, ev, 'husband')
+
+
+async def _send_gift_loli(bot: Bot, ev: Event) -> None:
+    await _send_gift_daily(bot, ev, 'loli')
+
+
+async def _accept_gift_loli(bot: Bot, ev: Event) -> None:
+    await _accept_gift_daily(bot, ev, 'loli')
+
+
+async def _reject_gift_loli(bot: Bot, ev: Event) -> None:
+    await _reject_gift_daily(bot, ev, 'loli')
 
 
 @gift_sv.on_prefix(('送老婆', '送今日老婆'), block=True)
@@ -192,3 +289,43 @@ async def gift_wife_accept(bot: Bot, ev: Event):
 @gift_sv.on_fullmatch('拒绝送老婆', block=True)
 async def gift_wife_reject(bot: Bot, ev: Event):
     await _reject_gift_wife(bot, ev)
+
+
+@gift_sv.on_prefix(('送老公', '送今日老公'), block=True)
+async def gift_husband(bot: Bot, ev: Event):
+    await _send_gift_husband(bot, ev)
+
+
+@gift_sv.on_fullmatch(('送老公', '送今日老公'), block=True)
+async def gift_husband_at(bot: Bot, ev: Event):
+    await _send_gift_husband(bot, ev)
+
+
+@gift_sv.on_fullmatch('同意送老公', block=True)
+async def gift_husband_accept(bot: Bot, ev: Event):
+    await _accept_gift_husband(bot, ev)
+
+
+@gift_sv.on_fullmatch('拒绝送老公', block=True)
+async def gift_husband_reject(bot: Bot, ev: Event):
+    await _reject_gift_husband(bot, ev)
+
+
+@gift_sv.on_prefix(('送萝莉', '送今日萝莉'), block=True)
+async def gift_loli(bot: Bot, ev: Event):
+    await _send_gift_loli(bot, ev)
+
+
+@gift_sv.on_fullmatch(('送萝莉', '送今日萝莉'), block=True)
+async def gift_loli_at(bot: Bot, ev: Event):
+    await _send_gift_loli(bot, ev)
+
+
+@gift_sv.on_fullmatch('同意送萝莉', block=True)
+async def gift_loli_accept(bot: Bot, ev: Event):
+    await _accept_gift_loli(bot, ev)
+
+
+@gift_sv.on_fullmatch('拒绝送萝莉', block=True)
+async def gift_loli_reject(bot: Bot, ev: Event):
+    await _reject_gift_loli(bot, ev)

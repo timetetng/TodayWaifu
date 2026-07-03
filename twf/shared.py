@@ -96,7 +96,8 @@ __all__ = [
     '_custom_upload_role_pile_root', '_daily_rng', '_download_avatar', '_download_image',
     '_download_image_sync', '_event_rng', '_fetch_gallery_payload_sync', '_filter_by_mode',
     '_gallery_api_url', '_gallery_auth_header', '_gallery_mode_enabled',
-    '_get_event_target_user_id', '_get_existing_daily_wife_record',
+    '_daily_bucket_name', '_daily_item_title', '_get_event_target_user_id',
+    '_get_existing_daily_record', '_get_existing_daily_wife_record',
     '_get_today_context',
     '_has_active_wife', '_http_get', '_husband_available', '_husband_enabled',
     '_husband_unavailable_message', '_image_source', '_invalidate_candidate_cache',
@@ -1089,10 +1090,27 @@ def _get_today_context(data: dict[str, Any], ev: Event) -> dict[str, Any]:
     context = day.setdefault(_context_key(ev), {})
     context.setdefault('wives', {})
     context.setdefault('husbands', {})
+    context.setdefault('lolis', {})
     context.setdefault('marry_members', {})
     context.setdefault('rob_attempts', {})
     context.setdefault('safe_wives', {})
     return context
+
+
+def _daily_bucket_name(kind: str) -> str:
+    if kind == 'husband':
+        return 'husbands'
+    if kind == 'loli':
+        return 'lolis'
+    return 'wives'
+
+
+def _daily_item_title(kind: str) -> str:
+    if kind == 'husband':
+        return '老公'
+    if kind == 'loli':
+        return '萝莉'
+    return '老婆'
 
 
 def _record_to_dict(record: WifeRecord, ev: Event | None = None, user_id: str | int | None = None) -> dict[str, Any]:
@@ -1279,13 +1297,17 @@ def _get_event_target_user_id(ev: Event) -> str | None:
 
 
 
-def _get_existing_daily_wife_record(ev: Event, user_id: str | int) -> WifeRecord | None:
+def _get_existing_daily_record(ev: Event, user_id: str | int, kind: str = 'wife') -> WifeRecord | None:
     data = _load_wife_data()
     context = _get_today_context(data, ev)
-    current = context['wives'].get(_user_key(ev, user_id))
+    current = context[_daily_bucket_name(kind)].get(_user_key(ev, user_id))
     if isinstance(current, dict):
         return _record_from_dict(current)
     return None
+
+
+def _get_existing_daily_wife_record(ev: Event, user_id: str | int) -> WifeRecord | None:
+    return _get_existing_daily_record(ev, user_id, 'wife')
 
 
 

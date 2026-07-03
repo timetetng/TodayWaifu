@@ -137,7 +137,31 @@ def _loli_image_map() -> dict[str, Path]:
 
 # ── 命令处理 ─────────────────────────────────────────────────────────────────
 
+def _loli_record_name(image: str) -> str:
+    return f'萝莉图{_loli_image_hash_id(image)}'
+
+
+async def _send_loli_record(bot: Bot, record: WifeRecord, text: str = '你今天的萝莉来啦！') -> None:
+    await bot.send([_with_loli_reply_prefix(text), MessageSegment.image(record.image)])
+
+
 async def _send_loli_image(bot: Bot, ev: Event) -> None:
+    data = _load_wife_data()
+    context = _get_today_context(data, ev)
+    user_key = _user_key(ev)
+    current = context['lolis'].get(user_key)
+    if isinstance(current, dict):
+        state = _wife_state(current)
+        if state == 'lost_stolen':
+            stolen_by_name = current.get('stolen_by_name') or current.get('stolen_by')
+            return await _send_loli_text(bot, f'你的萝莉已经被{stolen_by_name}抢走了，今天就先忍忍吧~')
+        if state == 'lost_gifted':
+            gifted_to_name = current.get('gifted_to_name') or current.get('gifted_to')
+            return await _send_loli_text(bot, f'你的萝莉已经送给{gifted_to_name}了，今天就先忍忍吧~')
+        record = _record_from_dict(current)
+        if record is not None:
+            return await _send_loli_record(bot, record)
+
     custom_url = str(_cfg('DailyWifeLoliconCustomUrl') or '').strip()
     if custom_url:
         logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 请求今日萝莉，接口: {custom_url}')
@@ -145,6 +169,16 @@ async def _send_loli_image(bot: Bot, ev: Event) -> None:
             data = await asyncio.to_thread(lambda: _http_get(custom_url, timeout=15))
         except Exception:
             return await _send_loli_text(bot, '暂无图片')
+        record = WifeRecord(
+            name='萝莉',
+            role_ids=('接口',),
+            image=custom_url,
+            record_type='loli',
+        )
+        save_data = _load_wife_data()
+        save_context = _get_today_context(save_data, ev)
+        save_context['lolis'][user_key] = _record_to_dict(record, ev, user_key)
+        _save_wife_data(save_data)
         await bot.send([_with_loli_reply_prefix('你今天的萝莉是'), MessageSegment.image(data)])
         return
 
@@ -153,7 +187,17 @@ async def _send_loli_image(bot: Bot, ev: Event) -> None:
         return await _send_loli_text(bot, '暂无图片')
     image = random.choice(images)
     logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 请求今日萝莉，发送本地图片: {image}')
-    await bot.send([_with_loli_reply_prefix('你今天的萝莉来啦！'), MessageSegment.image(image)])
+    record = WifeRecord(
+        name=_loli_record_name(str(image)),
+        role_ids=(_loli_image_hash_id(image),),
+        image=str(image),
+        record_type='loli',
+    )
+    save_data = _load_wife_data()
+    save_context = _get_today_context(save_data, ev)
+    save_context['lolis'][user_key] = _record_to_dict(record, ev, user_key)
+    _save_wife_data(save_data)
+    await _send_loli_record(bot, record)
 
 
 async def _send_upload_loli(bot: Bot, ev: Event) -> None:

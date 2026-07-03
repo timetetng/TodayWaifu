@@ -130,6 +130,31 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         '可用变量：{name} 角色名，{role_id} 数字 ID，{target} 被抢用户 ID',
         '抢老婆成功！你把对方今天的老婆{name}抢过来了！',
     ),
+    'DailyHusbandRobEnabled': GsBoolConfig(
+        '启用抢老公',
+        '开启后可以使用"抢老公 @对方"抢对方当天老公',
+        True,
+    ),
+    'DailyHusbandRobSuccessTemplate': GsStrConfig(
+        '抢老公成功文案',
+        '可用变量：{name} 角色名，{role_id} 数字 ID，{target} 被抢用户 ID',
+        '抢老公成功！你把对方今天的老公{name}抢过来了！',
+    ),
+    'DailyLoliRobEnabled': GsBoolConfig(
+        '启用抢萝莉',
+        '开启后可以使用"抢萝莉 @对方"抢对方当天萝莉',
+        True,
+    ),
+    'DailyLoliRobSuccessRate': GsStrConfig(
+        '抢萝莉成功率',
+        '0 到 1 之间的小数，例如 0.5 表示 50%',
+        '0.5',
+    ),
+    'DailyLoliRobSuccessTemplate': GsStrConfig(
+        '抢萝莉成功文案',
+        '可用变量：{name} 名称，{role_id} 图片标识，{target} 被抢用户 ID',
+        '抢萝莉成功！你把对方今天的萝莉抢过来了！',
+    ),
     'DailyWifeGiftEnabled': GsBoolConfig(
         '启用送老婆',
         '开启后可以使用"送老婆 @对方"，对方发送"同意送老婆"后完成赠送',
@@ -139,5 +164,25 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         '送老婆成功文案',
         '可用变量：{name} 角色名，{role_id} 数字 ID，{target} 接收用户 ID',
         '你把今天的老婆{name}送给了对方！',
+    ),
+    'DailyHusbandGiftEnabled': GsBoolConfig(
+        '启用送老公',
+        '开启后可以使用"送老公 @对方"，对方发送"同意送老公"后完成赠送',
+        True,
+    ),
+    'DailyHusbandGiftSuccessTemplate': GsStrConfig(
+        '送老公成功文案',
+        '可用变量：{name} 角色名，{role_id} 数字 ID，{target} 接收用户 ID',
+        '你把今天的老公{name}送给了对方！',
+    ),
+    'DailyLoliGiftEnabled': GsBoolConfig(
+        '启用送萝莉',
+        '开启后可以使用"送萝莉 @对方"，对方发送"同意送萝莉"后完成赠送',
+        True,
+    ),
+    'DailyLoliGiftSuccessTemplate': GsStrConfig(
+        '送萝莉成功文案',
+        '可用变量：{name} 名称，{role_id} 图片标识，{target} 接收用户 ID',
+        '你把今天的萝莉送给了对方！',
     ),
 }
