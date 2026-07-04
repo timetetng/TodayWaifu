@@ -277,61 +277,157 @@ async def _reject_gift_loli(bot: Bot, ev: Event) -> None:
     await _reject_gift_daily(bot, ev, 'loli')
 
 
-@gift_sv.on_prefix(('送老婆', '送今日老婆'), block=True)
+@gift_sv.on_prefix(
+    ('送老婆', '送今日老婆'),
+    block=True,
+    to_ai="""把当前用户今天的老婆送给指定用户。
+    当用户说“把我的老婆送给某人”“送老婆 @某人”时调用。
+    Args:
+        text: 目标用户，通常是 @用户 或用户 ID。
+    """,
+)
 async def gift_wife(bot: Bot, ev: Event):
     await _send_gift_wife(bot, ev)
 
 
-@gift_sv.on_fullmatch(('送老婆', '送今日老婆'), block=True)
+@gift_sv.on_fullmatch(
+    ('送老婆', '送今日老婆'),
+    block=True,
+    to_ai="""显示送老婆的用法。
+    当用户只说“送老婆”但没有指定目标用户时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_wife_at(bot: Bot, ev: Event):
     await _send_gift_wife(bot, ev)
 
 
-@gift_sv.on_fullmatch('同意送老婆', block=True)
+@gift_sv.on_fullmatch(
+    '同意送老婆',
+    block=True,
+    to_ai="""同意接收别人赠送的今日老婆。
+    当用户说“同意送老婆”“接受老婆赠送”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_wife_accept(bot: Bot, ev: Event):
     await _accept_gift_wife(bot, ev)
 
 
-@gift_sv.on_fullmatch('拒绝送老婆', block=True)
+@gift_sv.on_fullmatch(
+    '拒绝送老婆',
+    block=True,
+    to_ai="""拒绝接收别人赠送的今日老婆。
+    当用户说“拒绝送老婆”“不要这个老婆赠送”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_wife_reject(bot: Bot, ev: Event):
     await _reject_gift_wife(bot, ev)
 
 
-@gift_sv.on_prefix(('送老公', '送今日老公'), block=True)
+@gift_sv.on_prefix(
+    ('送老公', '送今日老公'),
+    block=True,
+    to_ai="""把当前用户今天的老公送给指定用户。
+    当用户说“把我的老公送给某人”“送老公 @某人”时调用。
+    Args:
+        text: 目标用户，通常是 @用户 或用户 ID。
+    """,
+)
 async def gift_husband(bot: Bot, ev: Event):
     await _send_gift_husband(bot, ev)
 
 
-@gift_sv.on_fullmatch(('送老公', '送今日老公'), block=True)
+@gift_sv.on_fullmatch(
+    ('送老公', '送今日老公'),
+    block=True,
+    to_ai="""显示送老公的用法。
+    当用户只说“送老公”但没有指定目标用户时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_husband_at(bot: Bot, ev: Event):
     await _send_gift_husband(bot, ev)
 
 
-@gift_sv.on_fullmatch('同意送老公', block=True)
+@gift_sv.on_fullmatch(
+    '同意送老公',
+    block=True,
+    to_ai="""同意接收别人赠送的今日老公。
+    当用户说“同意送老公”“接受老公赠送”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_husband_accept(bot: Bot, ev: Event):
     await _accept_gift_husband(bot, ev)
 
 
-@gift_sv.on_fullmatch('拒绝送老公', block=True)
+@gift_sv.on_fullmatch(
+    '拒绝送老公',
+    block=True,
+    to_ai="""拒绝接收别人赠送的今日老公。
+    当用户说“拒绝送老公”“不要这个老公赠送”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_husband_reject(bot: Bot, ev: Event):
     await _reject_gift_husband(bot, ev)
 
 
-@gift_sv.on_prefix(('送萝莉', '送今日萝莉'), block=True)
+@gift_sv.on_prefix(
+    ('送萝莉', '送今日萝莉'),
+    block=True,
+    to_ai="""把当前用户今天的萝莉送给指定用户。
+    当用户说“把我的萝莉送给某人”“送萝莉 @某人”时调用。
+    Args:
+        text: 目标用户，通常是 @用户 或用户 ID。
+    """,
+)
 async def gift_loli(bot: Bot, ev: Event):
     await _send_gift_loli(bot, ev)
 
 
-@gift_sv.on_fullmatch(('送萝莉', '送今日萝莉'), block=True)
+@gift_sv.on_fullmatch(
+    ('送萝莉', '送今日萝莉'),
+    block=True,
+    to_ai="""显示送萝莉的用法。
+    当用户只说“送萝莉”但没有指定目标用户时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_loli_at(bot: Bot, ev: Event):
     await _send_gift_loli(bot, ev)
 
 
-@gift_sv.on_fullmatch('同意送萝莉', block=True)
+@gift_sv.on_fullmatch(
+    '同意送萝莉',
+    block=True,
+    to_ai="""同意接收别人赠送的今日萝莉。
+    当用户说“同意送萝莉”“接受萝莉赠送”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_loli_accept(bot: Bot, ev: Event):
     await _accept_gift_loli(bot, ev)
 
 
-@gift_sv.on_fullmatch('拒绝送萝莉', block=True)
+@gift_sv.on_fullmatch(
+    '拒绝送萝莉',
+    block=True,
+    to_ai="""拒绝接收别人赠送的今日萝莉。
+    当用户说“拒绝送萝莉”“不要这个萝莉赠送”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def gift_loli_reject(bot: Bot, ev: Event):
     await _reject_gift_loli(bot, ev)

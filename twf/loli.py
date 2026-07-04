@@ -259,7 +259,15 @@ async def _send_delete_loli(bot: Bot, ev: Event) -> None:
 
 # ── 触发器注册 ────────────────────────────────────────────────────────────────
 
-@loli_sv.on_fullmatch('今日萝莉', block=True)
+@loli_sv.on_fullmatch(
+    '今日萝莉',
+    block=True,
+    to_ai="""随机抽取当前用户今天的萝莉图片。
+    当用户说“今日萝莉”“抽一张萝莉”“我今天的萝莉是谁”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def daily_loli(bot: Bot, ev: Event):
     await _send_loli_image(bot, ev)
 
@@ -269,7 +277,15 @@ async def upload_loli(bot: Bot, ev: Event):
     await _send_upload_loli(bot, ev)
 
 
-@loli_manage_sv.on_fullmatch(('今日萝莉列表', '萝莉图片列表'), block=True)
+@loli_manage_sv.on_fullmatch(
+    ('今日萝莉列表', '萝莉图片列表'),
+    block=True,
+    to_ai="""查看今日萝莉图库列表。
+    当用户说“今日萝莉列表”“萝莉图片列表”“有哪些萝莉图”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def list_loli(bot: Bot, ev: Event):
     await _send_loli_image_list(bot, ev)
 

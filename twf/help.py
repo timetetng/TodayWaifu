@@ -38,7 +38,15 @@ def _help_column() -> int:
     return max(1, min(10, column))
 
 
-@help_sv.on_fullmatch('今日老婆帮助', block=True)
+@help_sv.on_fullmatch(
+    '今日老婆帮助',
+    block=True,
+    to_ai="""查看 TodayWaifu 今日老婆插件帮助。
+    当用户问“今日老婆怎么用”“今日老婆帮助”“老婆插件有什么命令”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def daily_wife_help(bot: Bot, ev: Event):
     plugin_icon_path = _show_config_path('DailyWifeHelpIconUpload') or HELP_ICON_PATH
     if not plugin_icon_path.is_file():

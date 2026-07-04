@@ -51,16 +51,40 @@ async def _send_divorce(bot: Bot, ev: Event, kind: str = 'wife') -> None:
     await send_text(bot, f'你已经和今天的{title}{item_name}离婚了。')
 
 
-@divorce_sv.on_fullmatch(('离婚', '离婚老婆', '今日老婆离婚', '和老婆离婚'), block=True)
+@divorce_sv.on_fullmatch(
+    ('离婚', '离婚老婆', '今日老婆离婚', '和老婆离婚'),
+    block=True,
+    to_ai="""和当前用户今天的老婆离婚。
+    当用户说“我要和老婆离婚”“离婚老婆”“今日老婆离婚”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def divorce_wife(bot: Bot, ev: Event):
     await _send_divorce(bot, ev, 'wife')
 
 
-@divorce_sv.on_fullmatch(('离婚老公', '今日老公离婚', '和老公离婚'), block=True)
+@divorce_sv.on_fullmatch(
+    ('离婚老公', '今日老公离婚', '和老公离婚'),
+    block=True,
+    to_ai="""和当前用户今天的老公离婚。
+    当用户说“我要和老公离婚”“离婚老公”“今日老公离婚”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def divorce_husband(bot: Bot, ev: Event):
     await _send_divorce(bot, ev, 'husband')
 
 
-@divorce_sv.on_fullmatch(('离婚萝莉', '今日萝莉离婚', '和萝莉离婚'), block=True)
+@divorce_sv.on_fullmatch(
+    ('离婚萝莉', '今日萝莉离婚', '和萝莉离婚'),
+    block=True,
+    to_ai="""和当前用户今天的萝莉离婚。
+    当用户说“我要和萝莉离婚”“离婚萝莉”“今日萝莉离婚”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def divorce_loli(bot: Bot, ev: Event):
     await _send_divorce(bot, ev, 'loli')

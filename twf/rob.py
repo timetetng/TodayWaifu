@@ -177,31 +177,79 @@ async def _send_rob_loli(bot: Bot, ev: Event) -> None:
     await _send_rob_daily(bot, ev, 'loli')
 
 
-@rob_sv.on_prefix(('抢老婆', '抢今日老婆', '抢婆娘'), block=True)
+@rob_sv.on_prefix(
+    ('抢老婆', '抢今日老婆', '抢婆娘'),
+    block=True,
+    to_ai="""抢夺指定用户今天的老婆。
+    当用户说“抢某人的老婆”“抢老婆 @某人”时调用。
+    Args:
+        text: 目标用户，通常是 @用户 或用户 ID。
+    """,
+)
 async def rob_wife(bot: Bot, ev: Event):
     await _send_rob_wife(bot, ev)
 
 
-@rob_sv.on_fullmatch(('抢老婆', '抢今日老婆', '抢婆娘'), block=True)
+@rob_sv.on_fullmatch(
+    ('抢老婆', '抢今日老婆', '抢婆娘'),
+    block=True,
+    to_ai="""显示抢老婆的用法。
+    当用户只说“抢老婆”但没有指定目标用户时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def rob_wife_at(bot: Bot, ev: Event):
     await _send_rob_wife(bot, ev)
 
 
-@rob_sv.on_prefix(('抢老公', '抢今日老公'), block=True)
+@rob_sv.on_prefix(
+    ('抢老公', '抢今日老公'),
+    block=True,
+    to_ai="""抢夺指定用户今天的老公。
+    当用户说“抢某人的老公”“抢老公 @某人”时调用。
+    Args:
+        text: 目标用户，通常是 @用户 或用户 ID。
+    """,
+)
 async def rob_husband(bot: Bot, ev: Event):
     await _send_rob_husband(bot, ev)
 
 
-@rob_sv.on_fullmatch(('抢老公', '抢今日老公'), block=True)
+@rob_sv.on_fullmatch(
+    ('抢老公', '抢今日老公'),
+    block=True,
+    to_ai="""显示抢老公的用法。
+    当用户只说“抢老公”但没有指定目标用户时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def rob_husband_at(bot: Bot, ev: Event):
     await _send_rob_husband(bot, ev)
 
 
-@rob_sv.on_prefix(('抢萝莉', '抢今日萝莉'), block=True)
+@rob_sv.on_prefix(
+    ('抢萝莉', '抢今日萝莉'),
+    block=True,
+    to_ai="""抢夺指定用户今天的萝莉。
+    当用户说“抢某人的萝莉”“抢萝莉 @某人”时调用。
+    Args:
+        text: 目标用户，通常是 @用户 或用户 ID。
+    """,
+)
 async def rob_loli(bot: Bot, ev: Event):
     await _send_rob_loli(bot, ev)
 
 
-@rob_sv.on_fullmatch(('抢萝莉', '抢今日萝莉'), block=True)
+@rob_sv.on_fullmatch(
+    ('抢萝莉', '抢今日萝莉'),
+    block=True,
+    to_ai="""显示抢萝莉的用法。
+    当用户只说“抢萝莉”但没有指定目标用户时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def rob_loli_at(bot: Bot, ev: Event):
     await _send_rob_loli(bot, ev)

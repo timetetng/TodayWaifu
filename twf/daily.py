@@ -456,7 +456,16 @@ async def _send_wife_list(bot: Bot, ev: Event, mode: str = 'wife'):
     await _send_prefixed(bot,_wife_list_text_from_items(title_text, items))
 
 
-@daily_wife_sv.on_prefix(('今日老婆', '娶婆娘', 'jrlp', 'qlp'), block=True)
+@daily_wife_sv.on_prefix(
+    ('今日老婆', '娶婆娘', 'jrlp', 'qlp'),
+    block=True,
+    to_ai="""抽取当前用户今天的老婆。
+    当用户说“今日老婆”“帮我娶个老婆”“我今天的老婆是谁”时调用。
+    如果用户指定了角色名，把角色名放在 text 里，例如“今汐”“长离”；如果用户要看列表，text 填“列表”。
+    Args:
+        text: 可选，指定老婆角色名；留空表示随机抽取今日老婆；填“列表”表示查看老婆列表。
+    """,
+)
 async def daily_wife_prefix(bot: Bot, ev: Event):
     specified_name = str(ev.text or '').strip()
     if specified_name == '列表':
@@ -464,27 +473,68 @@ async def daily_wife_prefix(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='wife', specified_name=specified_name)
 
 
-@daily_wife_sv.on_fullmatch(('今日老婆', '娶婆娘', 'jrlp', 'qlp'), block=True)
+@daily_wife_sv.on_fullmatch(
+    ('今日老婆', '娶婆娘', 'jrlp', 'qlp'),
+    block=True,
+    to_ai="""随机抽取当前用户今天的老婆。
+    当用户说“今日老婆”“我今天老婆是谁”“帮我娶个老婆”且没有指定角色名时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def daily_wife_full(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='wife', specified_name='')
 
 
-@wife_list_sv.on_fullmatch('老婆列表', block=True)
+@wife_list_sv.on_fullmatch(
+    '老婆列表',
+    block=True,
+    to_ai="""查看可抽取的老婆角色列表。
+    当用户询问“老婆列表”“有哪些老婆可以抽”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def daily_wife_list(bot: Bot, ev: Event):
     await _send_wife_list(bot, ev)
 
 
-@assign_wife_sv.on_prefix(('分配老婆', '分配今日老婆'), block=True)
+@assign_wife_sv.on_prefix(
+    ('分配老婆', '分配今日老婆'),
+    block=True,
+    to_ai="""为指定用户分配今日老婆。
+    当管理员或用户说“给某人分配老婆”“分配今日老婆 @某人 角色名”时调用。
+    Args:
+        text: 分配参数，通常包含目标用户和老婆名，例如“@用户 今汐”。
+    """,
+)
 async def assign_wife(bot: Bot, ev: Event):
     await _send_assign_wife(bot, ev)
 
 
-@assign_wife_sv.on_fullmatch(('分配老婆', '分配今日老婆'), block=True)
+@assign_wife_sv.on_fullmatch(
+    ('分配老婆', '分配今日老婆'),
+    block=True,
+    to_ai="""显示分配今日老婆的用法。
+    当用户只说“分配老婆”但没有提供目标或角色名时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def assign_wife_usage(bot: Bot, ev: Event):
     await _send_assign_wife(bot, ev)
 
 
-@daily_husband_sv.on_prefix('今日老公', block=True)
+@daily_husband_sv.on_prefix(
+    '今日老公',
+    block=True,
+    to_ai="""抽取当前用户今天的老公。
+    当用户说“今日老公”“我今天的老公是谁”时调用。
+    如果用户指定了角色名，把角色名放在 text 里；如果用户要看列表，text 填“列表”。
+    Args:
+        text: 可选，指定老公角色名；留空表示随机抽取今日老公；填“列表”表示查看老公列表。
+    """,
+)
 async def daily_husband_prefix(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())
@@ -494,20 +544,44 @@ async def daily_husband_prefix(bot: Bot, ev: Event):
     await _send_daily_wife(bot, ev, mode='husband', specified_name=specified_name)
 
 
-@daily_husband_sv.on_fullmatch('今日老公', block=True)
+@daily_husband_sv.on_fullmatch(
+    '今日老公',
+    block=True,
+    to_ai="""随机抽取当前用户今天的老公。
+    当用户说“今日老公”“我今天老公是谁”且没有指定角色名时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def daily_husband_full(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())
     await _send_daily_wife(bot, ev, mode='husband', specified_name='')
 
 
-@husband_list_sv.on_fullmatch('老公列表', block=True)
+@husband_list_sv.on_fullmatch(
+    '老公列表',
+    block=True,
+    to_ai="""查看可抽取的老公角色列表。
+    当用户询问“老公列表”“有哪些老公可以抽”时调用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def daily_husband_list(bot: Bot, ev: Event):
     if not _husband_available():
         return await _send_prefixed(bot, _husband_unavailable_message())
     await _send_wife_list(bot, ev, mode='husband')
 
 
-@marry_member_sv.on_fullmatch(('娶群友', '取群友'), block=True)
+@marry_member_sv.on_fullmatch(
+    ('娶群友', '取群友'),
+    block=True,
+    to_ai="""随机抽取当前群里的一个群友作为今日互动对象。
+    当用户说“娶群友”“随机娶一个群友”“帮我抽个群友”时调用；只能在群聊使用。
+    Args:
+        text: 无需参数，留空。
+    """,
+)
 async def group_member_wife(bot: Bot, ev: Event):
     await _send_group_member_wife(bot, ev)
