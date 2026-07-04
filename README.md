@@ -1,7 +1,7 @@
-# TodayWaifu
+﻿# TodayWaifu
 
 <p align="center">
-  <a href="https://github.com/nnlmc/TodayWaifu"><img src="./ICON.png" width="160" alt="TodayWaifu ICON"></a>
+  <a href="https://github.com/MimoKit/TodayWaifu"><img src="./ICON.png" width="160" alt="TodayWaifu ICON"></a>
 </p>
 
 <h1 align="center">TodayWaifu</h1>
@@ -11,8 +11,8 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python"></a>
   <a href="https://github.com/Genshin-bots/gsuid_core"><img src="https://img.shields.io/badge/framework-GsCore-orange.svg" alt="Framework"></a>
-  <a href="https://github.com/nnlmc/TodayWaifu/issues"><img src="https://img.shields.io/github/issues/nnlmc/TodayWaifu.svg" alt="Issues"></a>
-  <a href="https://github.com/nnlmc/TodayWaifu/stargazers"><img src="https://img.shields.io/github/stars/nnlmc/TodayWaifu.svg?style=flat" alt="Stars"></a>
+  <a href="https://github.com/MimoKit/TodayWaifu/issues"><img src="https://img.shields.io/github/issues/MimoKit/TodayWaifu.svg" alt="Issues"></a>
+  <a href="https://github.com/MimoKit/TodayWaifu/stargazers"><img src="https://img.shields.io/github/stars/MimoKit/TodayWaifu.svg?style=flat" alt="Stars"></a>
 </p>
 
 ## 安装提醒
