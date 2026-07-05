@@ -142,7 +142,7 @@ def _loli_record_name(image: str) -> str:
 
 
 async def _send_loli_record(bot: Bot, record: WifeRecord, text: str = '你今天的萝莉来啦！') -> None:
-    await bot.send([_with_loli_reply_prefix(text), MessageSegment.image(record.image)])
+    await _safe_send(bot, [_with_loli_reply_prefix(text), MessageSegment.image(record.image)])
 
 
 async def _send_loli_image(bot: Bot, ev: Event) -> None:
@@ -181,7 +181,7 @@ async def _send_loli_image(bot: Bot, ev: Event) -> None:
         save_context = _get_today_context(save_data, ev)
         save_context['lolis'][user_key] = _record_to_dict(record, ev, user_key)
         _save_wife_data(save_data)
-        await bot.send([_with_loli_reply_prefix('你今天的萝莉是'), MessageSegment.image(data)])
+        await _safe_send(bot, [_with_loli_reply_prefix('你今天的萝莉是'), MessageSegment.image(data)])
         return
 
     images = _loli_image_paths()
@@ -234,7 +234,7 @@ async def _send_loli_image_list(bot: Bot, ev: Event) -> None:
     for hash_id, path in image_map.items():
         nodes.append(f'萝莉图片ID：{hash_id}')
         nodes.append(MessageSegment.image(path))
-    await bot.send(MessageSegment.node(nodes))
+    await _safe_send(bot, MessageSegment.node(nodes))
 
 
 async def _send_delete_loli(bot: Bot, ev: Event) -> None:

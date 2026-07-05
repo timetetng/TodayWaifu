@@ -51,7 +51,7 @@ async def daily_wife_help(bot: Bot, ev: Event):
     plugin_icon_path = _show_config_path('DailyWifeHelpIconUpload') or HELP_ICON_PATH
     if not plugin_icon_path.is_file():
         logger.warning(f'{LOG_PREFIX} 插件图标不存在: {plugin_icon_path}')
-        return await bot.send('帮助图片生成失败，ICON.png 缺失。')
+        return await _safe_send(bot, '帮助图片生成失败，ICON.png 缺失。')
 
     with Image.open(plugin_icon_path) as _icon:
         icon = _icon.convert('RGBA')
@@ -107,7 +107,7 @@ async def daily_wife_help(bot: Bot, ev: Event):
         pm=ev.user_pm,
         **extra,
     )
-    await bot.send(MessageSegment.image(img))
+    await _safe_send(bot, MessageSegment.image(img))
 
 
 if HELP_ICON_PATH.is_file():

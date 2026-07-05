@@ -448,7 +448,7 @@ async def _send_wife_list(bot: Bot, ev: Event, mode: str = 'wife'):
     title_text, items = await _wife_list_items(ev, mode)
     if _is_official_markdown_event(ev):
         markdown = _wife_list_markdown_from_items(title_text, items)
-        await bot.send(MessageSegment.markdown(markdown))
+        await _safe_send(bot, MessageSegment.markdown(markdown))
         return
     if len(items) > LIST_FORWARD_THRESHOLD:
         await _send_prefixed(bot,MessageSegment.node([_wife_list_text_from_items(title_text, items)]))

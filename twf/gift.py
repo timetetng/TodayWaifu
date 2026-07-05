@@ -25,6 +25,7 @@ from .shared import (
     _is_secondhand_wife,
     _load_wife_data,
     _record_to_dict,
+    _safe_send,
     _save_wife_data,
     _send_prefixed,
     _send_role_image,
@@ -90,7 +91,7 @@ async def _send_gift_result_image(
     messages.append(_with_loli_reply_prefix(text))
     image_ref = image if image.startswith(('http://', 'https://')) else Path(image)
     messages.append(MessageSegment.image(image_ref))
-    await bot.send(messages)
+    await _safe_send(bot, messages)
 
 
 def _get_pending_gift(ev: Event, target_user_id: str, kind: str = 'wife') -> dict[str, Any] | None:

@@ -113,7 +113,7 @@ __all__ = [
     '_resolve_member_avatar', '_resolve_member_candidate_avatar',
     '_resolve_role_map_path', '_resolve_role_pile_root', '_role_images',
     '_roll_group_member_wife', '_save_wife_data', '_send_local_image', '_send_loli_text',
-    '_send_prefixed', '_send_role_image',
+    '_safe_send', '_send_prefixed', '_send_role_image',
     '_today_key', '_usable_cached_avatar', '_user_display_name', '_user_key',
     '_valid_display_name', '_valid_member_text', '_wife_data_path', '_wife_origin',
     '_wife_state', '_with_loli_reply_prefix', '_writable_role_map_path', '_writable_role_pile_root',
@@ -136,8 +136,74 @@ def _with_loli_reply_prefix(text: str) -> str:
     return f'{leading}{LOLI_REPLY_PREFIX}{stripped}'
 
 
+def _is_xwuid_group_activity_hook_error(exc: Exception) -> bool:
+    message = str(exc)
+    return (
+        isinstance(exc, AttributeError)
+        and 'PluginHookManager' in message
+        and 'group_activity_hooks' in message
+    )
+
+
+def _parse_send_options(args: tuple[Any, ...], kwargs: dict[str, Any]) -> tuple[bool, Any, bool]:
+    options = dict(kwargs)
+    at_sender = options.pop('at_sender', False)
+    extra_metadata = options.pop('extra_metadata', None)
+    wait_recall = options.pop('wait_recall', False)
+
+    if len(args) > 3:
+        raise TypeError(f'Bot.send expected at most 3 positional options, got {len(args)}')
+    if len(args) >= 1:
+        at_sender = args[0]
+    if len(args) >= 2:
+        extra_metadata = args[1]
+    if len(args) >= 3:
+        wait_recall = args[2]
+    if options:
+        unexpected = ', '.join(options)
+        raise TypeError(f'Bot.send got unexpected keyword argument(s): {unexpected}')
+    return bool(at_sender), extra_metadata, bool(wait_recall)
+
+
+async def _target_send_without_bot_hooks(
+    bot: Bot,
+    message: Any,
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    at_sender, extra_metadata, wait_recall = _parse_send_options(args, kwargs)
+    ev = bot.ev
+    target_type = ev.user_type
+    target_id = ev.user_id if ev.user_type == 'direct' else ev.group_id
+    return await bot.bot.target_send(
+        message,
+        target_type,
+        target_id,
+        ev.real_bot_id,
+        bot.bot_self_id,
+        ev.msg_id,
+        at_sender,
+        ev.user_id,
+        ev.group_id,
+        ev.task_id,
+        ev.task_event,
+        extra_metadata=extra_metadata,
+        wait_recall=wait_recall,
+    )
+
+
+async def _safe_send(bot: Bot, message: Any, *args: Any, **kwargs: Any) -> Any:
+    try:
+        return await bot.send(message, *args, **kwargs)
+    except AttributeError as exc:
+        if not _is_xwuid_group_activity_hook_error(exc):
+            raise
+        logger.warning(f'{LOG_PREFIX} 检测到 XWUID BotHook 兼容问题，改用底层发送: {exc}')
+        return await _target_send_without_bot_hooks(bot, message, *args, **kwargs)
+
+
 async def _send_loli_text(bot: Bot, text: str, *args: Any, **kwargs: Any) -> Any:
-    return await bot.send(_with_loli_reply_prefix(text), *args, **kwargs)
+    return await _safe_send(bot, _with_loli_reply_prefix(text), *args, **kwargs)
 
 
 
@@ -188,8 +254,8 @@ def _prefix_outgoing_message(message: Any) -> Any:
 
 async def _send_prefixed(bot: Bot, message: Any, *args: Any, **kwargs: Any) -> Any:
     if not _cfg_bool('DailyWifeReplyPrefixEnabled', True):
-        return await bot.send(message, *args, **kwargs)
-    return await bot.send(_prefix_outgoing_message(message), *args, **kwargs)
+        return await _safe_send(bot, message, *args, **kwargs)
+    return await _safe_send(bot, _prefix_outgoing_message(message), *args, **kwargs)
 
 # 本地图片读取相关常量
 ROLE_MAP_RE = re.compile(r'^\s*(\d+)\s*[:：]\s*(.+?)\s*$')
