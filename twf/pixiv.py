@@ -207,12 +207,14 @@ def _pixiv_download(img_url: str, dest: str) -> None:
     }
     proxy = _pixiv_proxy()
     if _pximg_direct:
+        logger.info(f'{LOG_PREFIX} [Pixiv] 直连下载 {img_url}')
         resp = requests.get(img_url, headers=headers, timeout=30, stream=True, proxies=proxy)
         resp.raise_for_status()
         with open(dest, "wb") as f:
             shutil.copyfileobj(resp.raw, f)
         return
 
+    logger.info(f'{LOG_PREFIX} [Pixiv] DoH 直连下载')
     ip = _resolve_pximg_ip()
     ip_url = img_url.replace("https://i.pximg.net", f"https://{ip}", 1)
     session = requests.Session()
