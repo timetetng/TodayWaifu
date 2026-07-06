@@ -26,6 +26,14 @@ _pximg_ip: str | None = None
 _pximg_direct: bool | None = None
 
 
+def _pixiv_proxy() -> dict[str, str] | None:
+    """Get proxy config for requests/cloudscraper."""
+    proxy = str(_cfg('DailyWifePixivProxy') or '').strip()
+    if not proxy:
+        return None
+    return {"http": proxy, "https": proxy}
+
+
 def _pixiv_cache_root() -> Path:
     root = _custom_upload_data_root() / 'pixiv_cache'
     root.mkdir(parents=True, exist_ok=True)
@@ -181,8 +189,9 @@ def _probe_direct_download() -> None:
     if _pximg_direct is not None:
         return
     url = "https://i.pximg.net/c/100x100_80_a2/img-master/img/2020/01/01/00/00/00/1_p0_master1200.jpg"
+    proxy = _pixiv_proxy()
     try:
-        resp = requests.get(url, headers={"Referer": "https://app-api.pixiv.net/"}, timeout=8)
+        resp = requests.get(url, headers={"Referer": "https://app-api.pixiv.net/"}, timeout=8, proxies=proxy)
         _pximg_direct = resp.status_code == 200
     except Exception:
         _pximg_direct = False
@@ -196,8 +205,9 @@ def _pixiv_download(img_url: str, dest: str) -> None:
         "User-Agent": "PixivIOSApp/7.13.3 (iOS 14.6; iPhone13,2)",
         "Referer": "https://app-api.pixiv.net/",
     }
+    proxy = _pixiv_proxy()
     if _pximg_direct:
-        resp = requests.get(img_url, headers=headers, timeout=30, stream=True)
+        resp = requests.get(img_url, headers=headers, timeout=30, stream=True, proxies=proxy)
         resp.raise_for_status()
         with open(dest, "wb") as f:
             shutil.copyfileobj(resp.raw, f)
@@ -236,7 +246,8 @@ def refresh_pixiv_cache() -> int:
         manifest = _purge_expired(manifest)
         existing_ids = set(manifest)
 
-        api = AppPixivAPI()
+        proxy = _pixiv_proxy()
+        api = AppPixivAPI(proxies=proxy) if proxy else AppPixivAPI()
         api.auth(refresh_token=refresh_token)
 
         all_illusts: list[dict] = []

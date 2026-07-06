@@ -160,6 +160,11 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         '每次从 Pixiv 拉取的最大图片数，建议 10-50',
         '30',
     ),
+    'DailyWifePixivProxy': GsStrConfig(
+        'Pixiv 代理地址',
+        '访问 Pixiv API 和图片下载的代理地址，如 http://127.0.0.1:7890。留空则使用系统代理',
+        '',
+    ),
 
     '_DividerRob': GsDivider('抢夺设置', ''),
     'DailyWifeRobEnabled': GsBoolConfig(
