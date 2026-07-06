@@ -267,11 +267,16 @@ def refresh_pixiv_cache() -> int:
                     "search_ai_type": 0,
                 }
                 r = api.no_auth_requests_call("GET", url, params=params)
+                logger.info(f'{LOG_PREFIX} [Pixiv] sort={sort} HTTP {r.status_code}')
                 result = api.parse_result(r)
                 all_illusts = result.get('illusts', [])
-                logger.info(f'{LOG_PREFIX} [Pixiv] sort={sort} 返回 {len(all_illusts)} 个结果')
                 if all_illusts:
+                    sample = all_illusts[0]
+                    logger.info(f'{LOG_PREFIX} [Pixiv] 样例: id={sample.get("id")} bmk={sample.get("total_bookmarks")} x_restrict={sample.get("x_restrict")} ai_type={sample.get("ai_type")}')
+                    logger.info(f'{LOG_PREFIX} [Pixiv] sort={sort} 返回 {len(all_illusts)} 个结果')
                     break
+                else:
+                    logger.warning(f'{LOG_PREFIX} [Pixiv] sort={sort} 返回空结果, keys={list(result.keys())}')
             except Exception as exc:
                 logger.warning(f'{LOG_PREFIX} [Pixiv] sort={sort} 失败: {exc}')
                 continue
@@ -284,6 +289,13 @@ def refresh_pixiv_cache() -> int:
         logger.info(f'{LOG_PREFIX} [Pixiv] 过滤 R18: {len(all_illusts)} -> {len(filtered)}')
         filtered = [i for i in filtered if i.get('total_bookmarks', 0) >= 50]
         logger.info(f'{LOG_PREFIX} [Pixiv] 过滤低赞(>=50): -> {len(filtered)}')
+        if filtered:
+            logger.info(f'{LOG_PREFIX} [Pixiv] 过滤后样例: id={filtered[0].get("id")} bmk={filtered[0].get("total_bookmarks")}')
+        if not filtered:
+            bmks = sorted([i.get('total_bookmarks', 0) for i in all_illusts], reverse=True)[:10]
+            xrs = [i.get('x_restrict', 0) for i in all_illusts]
+            logger.warning(f'{LOG_PREFIX} [Pixiv] 全部被过滤! x_restrict分布: {set(xrs)} top10赞: {bmks}')
+            return 0
         random.shuffle(filtered)
         illusts = filtered[:batch_size]
         logger.info(f'{LOG_PREFIX} [Pixiv] 最终选取 {len(illusts)} 个工作品下载')
