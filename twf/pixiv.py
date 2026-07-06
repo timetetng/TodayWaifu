@@ -228,11 +228,13 @@ def _pixiv_download(img_url: str, dest: str) -> None:
 def refresh_pixiv_cache() -> int:
     global _REFERSHING
     if _REFERSHING:
+        logger.info(f'{LOG_PREFIX} [Pixiv] 已有刷新任务进行中，跳过')
         return 0
     _REFERSHING = True
     try:
         refresh_token = str(_cfg('DailyWifePixivRefreshToken') or '').strip()
         if not refresh_token:
+            logger.info(f'{LOG_PREFIX} [Pixiv] 未配置 refresh_token，跳过')
             return 0
 
         tags = str(_cfg('DailyWifePixivSearchTags') or '萝莉 ロリ loli').strip()
@@ -242,13 +244,17 @@ def refresh_pixiv_cache() -> int:
         except (TypeError, ValueError):
             pass
 
+        proxy = _pixiv_proxy()
+        logger.info(f'{LOG_PREFIX} [Pixiv] 刷新配置: tags="{tags}", batch={batch_size}, proxy={"有" if proxy else "无"}')
+
         manifest = _load_manifest()
         manifest = _purge_expired(manifest)
         existing_ids = set(manifest)
+        logger.info(f'{LOG_PREFIX} [Pixiv] 当前缓存: {len(manifest)} 个作品')
 
-        proxy = _pixiv_proxy()
         api = AppPixivAPI(proxies=proxy) if proxy else AppPixivAPI()
         api.auth(refresh_token=refresh_token)
+        logger.info(f'{LOG_PREFIX} [Pixiv] 认证成功, user_id={api.user_id}')
 
         all_illusts: list[dict] = []
         for sort in ('date_desc', 'popular_desc'):
@@ -263,28 +269,34 @@ def refresh_pixiv_cache() -> int:
                 r = api.no_auth_requests_call("GET", url, params=params)
                 result = api.parse_result(r)
                 all_illusts = result.get('illusts', [])
+                logger.info(f'{LOG_PREFIX} [Pixiv] sort={sort} 返回 {len(all_illusts)} 个结果')
                 if all_illusts:
                     break
             except Exception as exc:
-                logger.debug(f'{LOG_PREFIX} [Pixiv] sort={sort} 失败: {exc}')
+                logger.warning(f'{LOG_PREFIX} [Pixiv] sort={sort} 失败: {exc}')
                 continue
 
         if not all_illusts:
-            logger.info(f'{LOG_PREFIX} [Pixiv] 搜索无结果')
+            logger.warning(f'{LOG_PREFIX} [Pixiv] 搜索无结果')
             return 0
 
         filtered = [i for i in all_illusts if i.get('x_restrict', 0) == 0]
+        logger.info(f'{LOG_PREFIX} [Pixiv] 过滤 R18: {len(all_illusts)} -> {len(filtered)}')
         filtered = [i for i in filtered if i.get('total_bookmarks', 0) >= 50]
+        logger.info(f'{LOG_PREFIX} [Pixiv] 过滤低赞(>=50): -> {len(filtered)}')
         random.shuffle(filtered)
         illusts = filtered[:batch_size]
-        logger.debug(f'{LOG_PREFIX} [Pixiv] 搜索 {len(all_illusts)} -> 过滤后 {len(filtered)} -> 取 {len(illusts)}')
+        logger.info(f'{LOG_PREFIX} [Pixiv] 最终选取 {len(illusts)} 个工作品下载')
 
         new_count = 0
-        for illust in illusts:
+        for idx, illust in enumerate(illusts, 1):
             illust_id = illust.get('id')
             if not illust_id or str(illust_id) in existing_ids:
+                if str(illust_id) in existing_ids:
+                    logger.debug(f'{LOG_PREFIX} [Pixiv] {illust_id} 已缓存，跳过')
                 continue
 
+            logger.info(f'{LOG_PREFIX} [Pixiv] [{idx}/{len(illusts)}] 下载作品 {illust_id} (bmk={illust.get("total_bookmarks", 0)})')
             meta_pages = illust.get('meta_pages', [])
             if meta_pages:
                 urls = [
@@ -309,8 +321,9 @@ def refresh_pixiv_cache() -> int:
                     _pixiv_download(img_url, str(fpath))
                     if fpath.is_file():
                         saved_files.append(fname)
+                        logger.info(f'{LOG_PREFIX} [Pixiv] ✓ {illust_id} p{page_idx} ({fpath.stat().st_size // 1024} KB)')
                 except Exception as exc:
-                    logger.warning(f'{LOG_PREFIX} [Pixiv] 下载失败 {illust_id} p{page_idx}: {exc}')
+                    logger.warning(f'{LOG_PREFIX} [Pixiv] ✗ 下载失败 {illust_id} p{page_idx}: {exc}')
                     continue
 
             if saved_files:

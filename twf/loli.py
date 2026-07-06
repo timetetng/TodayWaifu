@@ -323,3 +323,17 @@ async def list_loli(bot: Bot, ev: Event):
 @loli_manage_sv.on_command('删除萝莉图片', block=True)
 async def delete_loli(bot: Bot, ev: Event):
     await _send_delete_loli(bot, ev)
+
+
+@loli_manage_sv.on_fullmatch('刷新萝莉缓存', block=True)
+async def refresh_loli_cache(bot: Bot, ev: Event):
+    if not _is_master(ev):
+        return await _send_loli_text(bot, '只有管理员可以执行此命令')
+    await _send_loli_text(bot, '开始刷新 Pixiv 缓存...')
+    try:
+        count = await asyncio.to_thread(refresh_pixiv_cache)
+        total = pixiv_cached_count()
+        await _send_loli_text(bot, f'刷新完成！新增 {count} 个作品，缓存共 {total} 张图片')
+    except Exception as exc:
+        logger.warning(f'{LOG_PREFIX} 刷新缓存失败: {exc}')
+        await _send_loli_text(bot, f'刷新失败: {exc}')
