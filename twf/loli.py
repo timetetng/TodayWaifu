@@ -1,8 +1,20 @@
 """TodayWaifu - loli module."""
 from __future__ import annotations
 
+import threading
+
 from .shared import *  # noqa: F403
 from .pixiv import pixiv_enabled, pixiv_cached_paths, pixiv_cached_count, pixiv_random_image, refresh_pixiv_cache, MIN_CACHED_IMAGES
+
+
+# ── 启动预热：后台预加载 Pixiv 缓存 ──────────────────────────────────────────
+def _startup_prefetch() -> None:
+    if pixiv_enabled():
+        import time
+        time.sleep(5)
+        refresh_pixiv_cache()
+
+threading.Thread(target=_startup_prefetch, daemon=True, name='pixiv-prefetch').start()
 
 
 # ── 本地图片目录读取 ─────────────────────────────────────────────────────────
@@ -192,7 +204,8 @@ async def _send_loli_image(bot: Bot, ev: Event) -> None:
         try:
             count = await asyncio.to_thread(pixiv_cached_count)
             if count < MIN_CACHED_IMAGES:
-                asyncio.create_task(asyncio.to_thread(refresh_pixiv_cache))
+                await asyncio.to_thread(refresh_pixiv_cache)
+                count = await asyncio.to_thread(pixiv_cached_count)
             seen = {str(p) for p in images}
             for _ in range(min(count, 5)):
                 pixiv_img = await asyncio.to_thread(pixiv_random_image)
