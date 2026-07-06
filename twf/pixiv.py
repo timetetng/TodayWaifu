@@ -23,7 +23,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 MIN_CACHED_IMAGES = 10
 _REFERSHING = False
 _pximg_ip: str | None = None
-_pximg_direct: bool | None = None
 
 
 def _pixiv_proxy() -> dict[str, str] | None:
@@ -183,37 +182,26 @@ def _resolve_pximg_ip() -> str:
     raise PixivError(msg)
 
 
-def _probe_direct_download() -> None:
-    """Probe once whether normal HTTPS download works, cache the result globally."""
-    global _pximg_direct
-    if _pximg_direct is not None:
-        return
-    url = "https://i.pximg.net/c/100x100_80_a2/img-master/img/2020/01/01/00/00/00/1_p0_master1200.jpg"
-    proxy = _pixiv_proxy()
-    try:
-        resp = requests.get(url, headers={"Referer": "https://app-api.pixiv.net/"}, timeout=8, proxies=proxy)
-        _pximg_direct = resp.status_code == 200
-    except Exception:
-        _pximg_direct = False
-    logger.info(f'{LOG_PREFIX} [Pixiv] 直连下载可用: {_pximg_direct}')
-
-
 def _pixiv_download(img_url: str, dest: str) -> None:
-    """Download from i.pximg.net. Use direct or DoH+IP based on probe result."""
-    _probe_direct_download()
+    """Download from i.pximg.net. Prefer proxy, fall back to DoH+IP direct."""
     headers = {
         "User-Agent": "PixivIOSApp/7.13.3 (iOS 14.6; iPhone13,2)",
         "Referer": "https://app-api.pixiv.net/",
     }
     proxy = _pixiv_proxy()
-    if _pximg_direct:
-        logger.info(f'{LOG_PREFIX} [Pixiv] 直连下载 {img_url}')
-        resp = requests.get(img_url, headers=headers, timeout=30, stream=True, proxies=proxy)
-        resp.raise_for_status()
-        with open(dest, "wb") as f:
-            shutil.copyfileobj(resp.raw, f)
-        return
+    # Attempt 1: use proxy (works when proxy can reach i.pximg.net)
+    if proxy:
+        try:
+            logger.debug(f'{LOG_PREFIX} [Pixiv] 代理下载')
+            resp = requests.get(img_url, headers=headers, timeout=60, stream=True, proxies=proxy)
+            resp.raise_for_status()
+            with open(dest, "wb") as f:
+                shutil.copyfileobj(resp.raw, f)
+            return
+        except Exception as exc:
+            logger.info(f'{LOG_PREFIX} [Pixiv] 代理下载失败，回退 DoH: {exc}')
 
+    # Attempt 2: DoH-resolved IP + HostHeaderSSLAdapter (bypass proxy)
     logger.info(f'{LOG_PREFIX} [Pixiv] DoH 直连下载')
     ip = _resolve_pximg_ip()
     ip_url = img_url.replace("https://i.pximg.net", f"https://{ip}", 1)
