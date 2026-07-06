@@ -1,0 +1,23 @@
+[project]
+name = "TodayWaifu"
+version = "1.0.0"
+description = "GSCore / GsUID 用的鸣潮「今日老婆」插件"
+authors = [
+  { name = "timetetng" },
+]
+license = { text = "GPL-3.0" }
+requires-python = ">=3.10, <4.0"
+dependencies = [
+    "cloudscraper>=1.2.70",
+    "requests_toolbelt>=1.0.0",
+    "pydantic>=2.0.0",
+]
+readme = "README.md"
+
+[project.urls]
+homepage = "https://github.com/nnlmc/TodayWaifu"
+repository = "https://github.com/nnlmc/TodayWaifu"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

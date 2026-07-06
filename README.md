@@ -19,6 +19,14 @@
 
 > 该插件为 [早柚核心(gsuid_core)](https://github.com/Genshin-bots/gsuid_core) 的扩展，需要先安装好 GSCore 才能使用。
 
+### 额外依赖
+
+Pixiv 图源功能需要以下依赖，请在 GSCore 环境中安装：
+
+```bash
+pip install cloudscraper requests_toolbelt pydantic
+```
+
 >🚧 插件仍在持续完善中，欢迎提交 issue 或 PR 🚧
 
 > 插件交流、图库账号密码获取请加群：[798949533](https://qm.qq.com/q/ejzCUfJ5le)

@@ -124,11 +124,41 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
     ),
 
     '_DividerLolicon': GsDivider('今日萝莉', ''),
+    'DailyWifeLoliImageSource': GsStrConfig(
+        '萝莉图源模式',
+        '选择萝莉图片的数据源：local 仅本地，pixiv 仅 Pixiv，pixiv_local Pixiv+本地混合',
+        'pixiv_local',
+        options=['local', 'pixiv', 'pixiv_local'],
+    ),
     'DailyWifeLoliconCustomUrl': GsStrConfig(
         '今日萝莉接口地址',
         '【免责声明】第三方 API，作者不对其内容负责，使用风险自行承担。'
         '填入 GET 直接返回图片内容的接口地址，留空则禁用今日萝莉功能',
         '',
+    ),
+
+    '_DividerPixiv': GsDivider('Pixiv 图源', ''),
+    'DailyWifePixivRefreshToken': GsStrConfig(
+        'Pixiv Refresh Token',
+        'Pixiv 刷新令牌。填入后自动从 Pixiv 搜索萝莉图片作为图源。'
+        '获取方法：https://gist.github.com/upbit/6ed4c44e7030e3ad64cca6385aba5761',
+        '',
+        secret=True,
+    ),
+    'DailyWifePixivSearchTags': GsStrConfig(
+        'Pixiv 搜索标签',
+        '用空格分隔多个标签，用于搜索萝莉相关图片',
+        '萝莉 ロリ loli',
+    ),
+    'DailyWifePixivCacheDays': GsStrConfig(
+        'Pixiv 缓存天数',
+        'Pixiv 图片本地缓存保留天数，超期自动清理。默认 3 天',
+        '3',
+    ),
+    'DailyWifePixivMaxImages': GsStrConfig(
+        'Pixiv 每次获取数量',
+        '每次从 Pixiv 拉取的最大图片数，建议 10-50',
+        '30',
     ),
 
     '_DividerRob': GsDivider('抢夺设置', ''),

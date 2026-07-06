@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .shared import *  # noqa: F403
+from .pixiv import pixiv_enabled, pixiv_cached_paths, pixiv_cached_count, pixiv_random_image, refresh_pixiv_cache, MIN_CACHED_IMAGES
 
 
 # ── 本地图片目录读取 ─────────────────────────────────────────────────────────
@@ -184,11 +185,27 @@ async def _send_loli_image(bot: Bot, ev: Event) -> None:
         await _safe_send(bot, [_with_loli_reply_prefix('你今天的萝莉是'), MessageSegment.image(data)])
         return
 
-    images = _loli_image_paths()
+    source = str(_cfg('DailyWifeLoliImageSource') or 'pixiv_local').strip()
+    images = list(_loli_image_paths()) if source != 'pixiv' else []
+
+    if source != 'local' and pixiv_enabled():
+        try:
+            count = await asyncio.to_thread(pixiv_cached_count)
+            if count < MIN_CACHED_IMAGES:
+                asyncio.create_task(asyncio.to_thread(refresh_pixiv_cache))
+            seen = {str(p) for p in images}
+            for _ in range(min(count, 5)):
+                pixiv_img = await asyncio.to_thread(pixiv_random_image)
+                if pixiv_img and str(pixiv_img) not in seen:
+                    images.append(pixiv_img)
+                    seen.add(str(pixiv_img))
+        except Exception as exc:
+            logger.warning(f'{LOG_PREFIX} [Pixiv] 获取缓存失败: {exc}')
+
     if not images:
         return await _send_loli_text(bot, '暂无图片')
     image = random.choice(images)
-    logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 请求今日萝莉，发送本地图片: {image}')
+    logger.debug(f'{LOG_PREFIX} 用户 {ev.user_id} 请求今日萝莉，发送图片: {image}')
     record = WifeRecord(
         name=_loli_record_name(str(image)),
         role_ids=(_loli_image_hash_id(image),),
